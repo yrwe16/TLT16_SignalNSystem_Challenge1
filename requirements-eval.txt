@@ -1,0 +1,6 @@
+# Extra packages for tools/evaluate.py only (not needed to run denoise.py).
+# On Windows, if pesq fails to build, install it from conda-forge:
+#   conda install -c conda-forge pesq=0.0.4
+-r requirements.txt
+pesq==0.0.4
+pandas>=2.1,<4

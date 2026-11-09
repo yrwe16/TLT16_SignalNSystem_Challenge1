@@ -1,0 +1,111 @@
+# 저희가왜마지막이조 · Speech Noise Reduction Challenge
+
+| 항목 | 내용 |
+| --- | --- |
+| 팀명 | 저희가왜마지막이조 |
+| 제출 회차 | 1회차 |
+| 평가 버전 | Git 태그 `round-01` (커밋 해시는 런어스 제출 글에 함께 기재) |
+| 알고리즘 | Wiener Filter (decision-directed 사전 SNR 추정), 딥러닝·머신러닝 미사용 |
+
+## 실행 방법
+
+Python 3.10 이상에서 동작합니다 (Python 3.10, 3.12, 3.13에서 확인).
+
+```bash
+# 1. 패키지 설치
+pip install -r requirements.txt
+
+# 2. 테스트 WAV 파일을 input/ 폴더에 넣고 실행
+python denoise.py
+
+# 3. 결과는 output/ 폴더에 같은 파일명으로 저장됩니다
+```
+
+다른 폴더를 쓰려면 `python denoise.py --input <입력 폴더> --output <출력 폴더>`로 지정합니다.
+경로는 모두 저장소 기준 상대 경로이며, 개인 PC의 절대 경로에 의존하지 않습니다.
+
+### 입출력 규칙
+
+- `input/` 아래의 모든 `.wav` 파일(대소문자 무관, 하위 폴더 포함)을 처리합니다.
+- 입력 파일마다 **같은 파일명**의 출력 WAV 하나를 `output/`에 만듭니다.
+- 출력은 입력과 **같은 샘플링 주파수, 채널 수, 샘플 수, WAV 형식**(예: 16-bit PCM)을 유지합니다.
+- 여러 채널이면 채널별로 따로 처리합니다. 16 kHz가 아닌 입력은 창 길이(32 ms)가 같도록 STFT 크기를 맞춥니다.
+- 정수 PCM 출력의 피크가 1을 넘으면 클리핑 대신 파일 전체 레벨을 일정하게 낮춥니다.
+- 읽을 수 없는 파일이 있어도 중단하지 않고, 경고를 표시한 뒤 입력을 그대로 복사해 출력 파일이 빠지지 않게 합니다.
+
+결과가 규칙을 지키는지 확인하려면 다음을 실행합니다.
+
+```bash
+python tools/check_io.py          # input/ 과 output/ 비교
+```
+
+## 알고리즘
+
+강의에서 제공한 베이스라인 노트북(`noise_reduction_baselines.ipynb`)의 Wiener Filter를 제출 형식에 맞게 옮긴 것입니다.
+16 kHz 입력에서 노트북의 `wiener_filter` 함수와 출력이 샘플 단위로 동일함을 확인했습니다.
+
+1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
+2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 주파수 방향으로 3-bin 평활화합니다. 파일마다 하나의 값을 사용하며 Noisy 입력만 사용합니다.
+3. **이득 계산:** 사후 SNR $\gamma_t = |Y_t|^2 / N$, 사전 SNR $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$,
+   이득 $G_t = \mathrm{clip}\big(\xi_t/(1+\xi_t),\ g_{\min},\ 1\big)$ 를 적용하고 입력 위상으로 복원합니다.
+4. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
+
+| 파라미터 | 값 | 위치 |
+| --- | --- | --- |
+| 창 길이 / 겹침 | 32 ms / 75 % | `denoiser/config.py` |
+| 잡음 추정 프레임 비율 | 0.20 | `noise_fraction` |
+| decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
+| 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
+
+모든 파라미터는 코드(`denoiser/config.py`)에 포함되어 있으며 별도 설정 파일이 필요 없습니다.
+
+## Validation 평가 결과
+
+> 작성 예정: Validation 데이터 평가 후 이 표를 채웁니다.
+
+| 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
+| --- | ---: | ---: | ---: |
+| Noisy (처리 전) | | | |
+| 제출 알고리즘 | | | |
+
+평가 방법은 베이스라인 노트북과 같습니다.
+
+- **SNR:** $10\log_{10}\big(\sum s^2 / \sum (s-\hat s)^2\big)$, 레벨·시간 정렬 없음.
+- **PESQ:** 16 kHz wideband (`pesq` 0.0.4, mode `wb`).
+- **집계:** 파일별 점수의 단순 평균.
+
+`denoise.py`가 실제로 저장한 WAV 파일을 채점하므로, 16-bit 저장 과정의 영향도 포함됩니다.
+
+### 평가 재현
+
+```bash
+pip install -r requirements-eval.txt
+python tools/evaluate.py --data-root <noise_reduction_challenge 폴더>
+```
+
+`<noise_reduction_challenge 폴더>` 안에 `validation/samples.csv`가 있어야 합니다.
+결과는 `results/`에 저장됩니다 (전체 요약, 파일별 점수, 잡음 종류·SNR·난이도별 요약).
+Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0.0.4`를 사용하세요.
+
+## 폴더 구조
+
+```
+denoise.py              실행 파일 (input/ → output/)
+denoiser/
+  config.py             모든 파라미터
+  stft.py               STFT / ISTFT
+  noise_estimation.py   잡음 파워 추정
+  gains.py              Wiener 이득 (decision-directed)
+  pipeline.py           신호·파일·폴더 단위 처리
+tools/
+  check_io.py           입출력 규칙 검사
+  evaluate.py           Validation SNR / PESQ 평가
+requirements.txt        실행에 필요한 패키지
+requirements-eval.txt   평가에만 필요한 패키지
+input/  output/         테스트 입력 / 결과 폴더
+```
+
+## 참고 문헌
+
+- Y. Ephraim and D. Malah, "Speech Enhancement Using a Minimum Mean-Square Error Short-Time Spectral Amplitude Estimator," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 32, no. 6, pp. 1109–1121, 1984. (decision-directed 사전 SNR 추정)
+- 코드 출처: 강의 제공 베이스라인 노트북 `noise_reduction_baselines.ipynb`의 `stft_audio`, `inverse_stft`, `estimate_noise_power`, `wiener_filter`.

@@ -1,0 +1,16 @@
+# Test audio is not committed; keep the empty folders.
+input/*
+!input/.gitkeep
+output/*
+!output/.gitkeep
+
+# Local data and environments
+data/
+*.zip
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.part
+.ipynb_checkpoints/
+.DS_Store
