@@ -6,6 +6,7 @@ numbers include the effect of saving to 16-bit PCM, just as the TA evaluation wo
 Usage:
     python tools/evaluate.py --data-root PATH/noise_reduction_challenge
     python tools/evaluate.py --data-root PATH --split validation --enhanced-dir output
+    python tools/evaluate.py --data-root PATH --split train --set gain_rule=lsa         --set lsa_gain_floor=0.1 --results-dir results/experiments/NAME/train-CAND
 
 PATH must contain <split>/samples.csv. Requires requirements-eval.txt.
 If samples.csv has a valid_samples column, only the first valid_samples samples of each
@@ -28,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from denoiser import CONFIG, denoise_file  # noqa: E402
-from dataclasses import asdict  # noqa: E402
+from dataclasses import asdict, fields, replace  # noqa: E402
 
 
 def snr_db(clean, estimate):
@@ -94,6 +95,18 @@ def summarize(detail, by=None):
     return pd.DataFrame(rows)
 
 
+def parse_overrides(items):
+    """--set key=value pairs -> Config with those fields replaced (types from Config)."""
+    types = {f.name: type(getattr(CONFIG, f.name)) for f in fields(CONFIG)}
+    changes = {}
+    for item in items:
+        key, sep, value = item.partition("=")
+        if not sep or key not in types:
+            raise SystemExit(f"--set expects key=value with a Config field, got {item!r}")
+        changes[key] = types[key](value)
+    return replace(CONFIG, **changes)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-root", type=Path, required=True)
@@ -103,7 +116,14 @@ def main():
                              "if omitted, denoise.py's algorithm is run first")
     parser.add_argument("--results-dir", type=Path, default=ROOT / "results")
     parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                        help="override a denoiser Config field for this run (repeatable)")
+    parser.add_argument("--keep-enhanced", type=Path,
+                        help="also save the denoised WAV files to this folder")
     args = parser.parse_args()
+    cfg = parse_overrides(args.set)
+    if args.enhanced_dir and args.set:
+        raise SystemExit("--set has no effect with --enhanced-dir")
 
     root = args.data_root.resolve()
     manifest = pd.read_csv(root / args.split / "samples.csv")
@@ -111,8 +131,8 @@ def main():
         if args.enhanced_dir:
             enhanced_dir = args.enhanced_dir.resolve()
         else:
-            enhanced_dir = Path(tmp)
-            jobs = [(root / p, enhanced_dir / Path(p).name) for p in manifest.noisy_path]
+            enhanced_dir = args.keep_enhanced.resolve() if args.keep_enhanced else Path(tmp)
+            jobs = [(root / p, enhanced_dir / Path(p).name, cfg) for p in manifest.noisy_path]
             list(pool.map(_denoise_job, jobs, chunksize=8))
         targets = [enhanced_dir / Path(p).name for p in manifest.noisy_path]
         missing = [t for t in targets if not t.is_file()]
@@ -131,7 +151,7 @@ def main():
     for by in ("noise_category", "target_snr_db", "noise_difficulty"):
         summarize(detail, by).to_csv(out / f"{args.split}_by_{by}.csv", index=False,
                                      encoding="utf-8-sig")
-    meta = {"split": args.split, "files": len(detail), "config": asdict(CONFIG),
+    meta = {"split": args.split, "files": len(detail), "config": asdict(cfg), "overrides": args.set,
             "python": platform.python_version(), "pesq_mode": "wb",
             "snr": "10*log10(sum(clean**2)/sum((clean-output)**2)), no alignment",
             "scored_region": ("first valid_samples samples (samples.csv column)"
@@ -150,8 +170,8 @@ def main():
 
 
 def _denoise_job(job):
-    source, target = job
-    denoise_file(source, target, CONFIG)
+    source, target, cfg = job
+    denoise_file(source, target, cfg)
 
 
 if __name__ == "__main__":

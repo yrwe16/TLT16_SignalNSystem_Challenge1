@@ -1,0 +1,13 @@
+# Fixed listening/spectrogram set (validation). Chosen once on 2026-11-10: first segment_id
+# (sorted) per noise_category x target_snr_db, covering main categories and 0/5/10/15 dB.
+segment_id,noise_category,target_snr_db
+speaker007_utt02_seg0011,machine,0
+speaker007_utt01_seg0007,machine,10
+speaker015_utt01_seg0008,wind,5
+speaker007_utt02_seg0012,wind,15
+speaker015_utt01_seg0007,alarm_siren,0
+speaker007_utt01_seg0003,alarm_siren,10
+speaker007_utt01_seg0008,aircraft_cockpit,5
+speaker007_utt01_seg0011,broadband_noise,15
+speaker007_utt02_seg0014,traffic_vehicle,10
+speaker016_utt01_seg0004,clap,15

@@ -1,0 +1,22 @@
+{
+  "split": "train",
+  "files": 1296,
+  "config": {
+    "frame_seconds": 0.032,
+    "overlap_ratio": 0.75,
+    "noise_fraction": 0.2,
+    "gain_rule": "wiener",
+    "wiener_smoothing": 0.98,
+    "wiener_gain_floor": 0.05,
+    "lsa_smoothing": 0.98,
+    "lsa_gain_floor": 0.1,
+    "pcm_peak_limit": 0.999
+  },
+  "overrides": [],
+  "python": "3.14.8",
+  "pesq_mode": "wb",
+  "snr": "10*log10(sum(clean**2)/sum((clean-output)**2)), no alignment",
+  "scored_region": "whole file",
+  "aggregation": "unweighted mean over files",
+  "scored_files": "denoised WAV files as written by denoise.py"
+}

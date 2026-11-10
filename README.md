@@ -46,22 +46,31 @@ python tools/check_io.py          # input/ 과 output/ 비교
 
 1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
 2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 주파수 방향으로 3-bin 평활화합니다. 파일마다 하나의 값을 사용하며 Noisy 입력만 사용합니다.
-3. **이득 계산:** 사후 SNR $\gamma_t = |Y_t|^2 / N$, 사전 SNR $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$,
-   이득 $G_t = \mathrm{clip}\big(\xi_t/(1+\xi_t),\ g_{\min},\ 1\big)$ 를 적용하고 입력 위상으로 복원합니다.
+3. **이득 계산:** 사후 SNR $\gamma_t = |Y_t|^2 / N$, 사전 SNR $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$ (decision-directed).
+   이득 규칙은 `gain_rule`로 고르며, 이득을 곱한 뒤 입력 위상으로 복원합니다.
+   - `wiener` (1회차 제출본): $G_t = \mathrm{clip}\big(\xi_t/(1+\xi_t),\ g_{\min},\ 1\big)$
+   - `lsa` (현재 기본값, 다음 회차 후보): MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985). 논문처럼 상한은 두지 않습니다.
 4. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
 
 | 파라미터 | 값 | 위치 |
 | --- | --- | --- |
 | 창 길이 / 겹침 | 32 ms / 75 % | `denoiser/config.py` |
 | 잡음 추정 프레임 비율 | 0.20 | `noise_fraction` |
-| decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
-| 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
+| 이득 규칙 | `lsa` (1회차는 `wiener`) | `gain_rule` |
+| LSA decision-directed 계수 $a$ | 0.95 | `lsa_smoothing` |
+| LSA 최소 이득 $g_{\min}$ | 0.178 (−15 dB) | `lsa_gain_floor` |
+| Wiener decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
+| Wiener 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
+
+LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
+`gain_rule="wiener"`로 바꾸면 1회차 제출본과 바이트 단위로 같은 출력을 냅니다.
 
 모든 파라미터는 코드(`denoiser/config.py`)에 포함되어 있으며 별도 설정 파일이 필요 없습니다.
 
 ## Validation 평가 결과
 
-1회차(`round-01`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
+1회차(`round-01`) 제출 버전(Wiener)으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
+현재 `main`의 기본값(MMSE-LSA)은 아직 제출하지 않은 실험 결과이며, 아래 "실험 기록"에 따로 정리했습니다.
 
 | 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
 | --- | ---: | ---: | ---: |
@@ -91,6 +100,25 @@ python tools/evaluate.py --data-root <noise_reduction_challenge 폴더>
 결과는 `results/`에 저장됩니다 (전체 요약, 파일별 점수, 잡음 종류·SNR·난이도별 요약).
 Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0.0.4`를 사용하세요.
 
+## 실험 기록
+
+단계별 실험은 `results/experiments.csv`에 기록하고, 실험별 Train 후보·Validation 결과·짝지은 검정·스펙트로그램은 `results/experiments/<날짜>-<이름>/`에 둡니다.
+
+| 단계 | 변경 | Train PESQ-WB | Validation PESQ-WB | Validation SNR (dB) | 결정 |
+| --- | --- | ---: | ---: | ---: | --- |
+| 0 | Wiener (1회차 제출본) | 1.604 | 1.599 | 13.12 | 기준 |
+| 1 | + 이득 함수 MMSE-LSA (−15 dB, $a$ = 0.95) | 1.763 | 1.730 | 13.57 | 채택 (Wilcoxon $p$ = 7×10⁻¹³) |
+
+```bash
+# 설정을 바꿔 평가 (결과를 실험 폴더에 저장)
+python tools/evaluate.py --data-root <데이터 폴더> --split train --set gain_rule=lsa \
+    --set lsa_gain_floor=0.178 --results-dir results/experiments/<이름>/train-<후보>
+# 두 평가 결과의 파일별 짝지은 비교 (Wilcoxon signed-rank, 잡음 종류·SNR별)
+python tools/compare_runs.py <기준 결과 폴더> <새 결과 폴더> --split validation
+# 고정 청취 목록(results/listening_set.txt)의 스펙트로그램 (matplotlib 필요)
+python tools/plot_spectrograms.py --data-root <데이터 폴더> --run "이전=<폴더>" --run "새=<폴더>" --out <폴더>
+```
+
 ## 폴더 구조
 
 ```
@@ -99,11 +127,13 @@ denoiser/
   config.py             모든 파라미터
   stft.py               STFT / ISTFT
   noise_estimation.py   잡음 파워 추정
-  gains.py              Wiener 이득 (decision-directed)
+  gains.py              Wiener / MMSE-LSA 이득 (decision-directed)
   pipeline.py           신호·파일·폴더 단위 처리
 tools/
   check_io.py           입출력 규칙 검사
-  evaluate.py           Validation SNR / PESQ 평가
+  evaluate.py           Train / Validation SNR / PESQ 평가 (--set 으로 설정 덮어쓰기)
+  compare_runs.py       두 평가 결과의 짝지은 검정, 잡음 종류·SNR별 비교
+  plot_spectrograms.py  고정 청취 목록의 스펙트로그램
 requirements.txt        실행에 필요한 패키지
 requirements-eval.txt   평가에만 필요한 패키지
 input/  output/         테스트 입력 / 결과 폴더
@@ -112,4 +142,6 @@ input/  output/         테스트 입력 / 결과 폴더
 ## 참고 문헌
 
 - Y. Ephraim and D. Malah, "Speech Enhancement Using a Minimum Mean-Square Error Short-Time Spectral Amplitude Estimator," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 32, no. 6, pp. 1109–1121, 1984. (decision-directed 사전 SNR 추정)
+- Y. Ephraim and D. Malah, "Speech Enhancement Using a Minimum Mean-Square Error Log-Spectral Amplitude Estimator," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 33, no. 2, pp. 443–445, 1985, DOI 10.1109/TASSP.1985.1164550. (MMSE-LSA 이득)
+- 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m` (LGPL-3).
 - 코드 출처: 강의 제공 베이스라인 노트북 `noise_reduction_baselines.ipynb`의 `stft_audio`, `inverse_stft`, `estimate_noise_power`, `wiener_filter`.

@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Speech noise reduction (Wiener filter).")
+    parser = argparse.ArgumentParser(description="Speech noise reduction (MMSE-LSA / Wiener, see denoiser/config.py).")
     parser.add_argument("--input", type=Path, default=ROOT / "input",
                         help="folder with noisy WAV files (default: ./input)")
     parser.add_argument("--output", type=Path, default=ROOT / "output",

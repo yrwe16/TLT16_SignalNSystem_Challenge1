@@ -13,9 +13,21 @@ class Config:
     # Noise PSD: mean power of the lowest-energy complete frames, smoothed over 3 bins.
     noise_fraction: float = 0.20
 
+    # Gain rule (roadmap stage 1): "wiener" = round-01 submission, "lsa" = MMSE log-spectral
+    # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
+    # Both use the decision-directed a priori SNR; each rule keeps its own parameters so
+    # gain_rule="wiener" reproduces the round-01 submission byte for byte.
+    gain_rule: str = "lsa"  # adopted 2026-11-10 (results/experiments.csv)
+
     # Wiener filter with decision-directed a priori SNR (Ephraim & Malah, 1984).
     wiener_smoothing: float = 0.98
     wiener_gain_floor: float = 0.05
+
+    # MMSE-LSA: G = xi/(1+xi) * exp(E1(v)/2), v = xi*gamma/(1+xi), then G = max(G, floor).
+    # No upper clip (as in the paper, logmmse and VOICEBOX v_ssubmmse).
+    # Chosen on Train by PESQ-WB: floor {-10,-12,-15,-20,-25} dB x a {0.92,0.95,0.98}.
+    lsa_smoothing: float = 0.95
+    lsa_gain_floor: float = 0.1778279410038923  # 10**(-15/20), -15 dB
 
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
@@ -31,6 +43,12 @@ class Config:
             raise ValueError("wiener_smoothing must be in [0, 1).")
         if not 0 <= self.wiener_gain_floor <= 1:
             raise ValueError("wiener_gain_floor must be in [0, 1].")
+        if self.gain_rule not in ("wiener", "lsa"):
+            raise ValueError("gain_rule must be 'wiener' or 'lsa'.")
+        if not 0 <= self.lsa_smoothing < 1:
+            raise ValueError("lsa_smoothing must be in [0, 1).")
+        if not 0 <= self.lsa_gain_floor <= 1:
+            raise ValueError("lsa_gain_floor must be in [0, 1].")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
