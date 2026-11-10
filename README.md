@@ -1,4 +1,4 @@
-# 저희가왜마지막이조 · Speech Noise Reduction Challenge
+# 저희가왜마지막이조(TLT) · Speech Noise Reduction Challenge
 
 | 항목 | 내용 |
 | --- | --- |
