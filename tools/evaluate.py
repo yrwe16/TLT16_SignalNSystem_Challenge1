@@ -8,6 +8,8 @@ Usage:
     python tools/evaluate.py --data-root PATH --split validation --enhanced-dir output
 
 PATH must contain <split>/samples.csv. Requires requirements-eval.txt.
+If samples.csv has a valid_samples column, only the first valid_samples samples of each
+file are scored (as in the notebook); otherwise the whole file is scored.
 """
 
 import argparse
@@ -61,6 +63,12 @@ def score_row(job):
     enhanced, sr_out = read_mono(enhanced_path)
     if sr_out != sr or len(enhanced) != len(clean) or len(noisy) != len(clean):
         raise ValueError(f"shape/rate mismatch: {row['segment_id']}")
+    # Same as the baseline notebook: denoise the full file, but score only the first
+    # valid_samples samples when samples.csv has that column; otherwise the whole file.
+    valid = int(row.get("valid_samples", len(clean)))
+    if not 0 < valid <= len(clean):
+        raise ValueError(f"Invalid valid_samples: {row['segment_id']}")
+    clean, noisy, enhanced = clean[:valid], noisy[:valid], enhanced[:valid]
     in_pesq, in_err = pesq_wb(clean, noisy, sr)
     out_pesq, out_err = pesq_wb(clean, enhanced, sr)
     in_snr, out_snr = snr_db(clean, noisy), snr_db(clean, enhanced)
@@ -126,6 +134,8 @@ def main():
     meta = {"split": args.split, "files": len(detail), "config": asdict(CONFIG),
             "python": platform.python_version(), "pesq_mode": "wb",
             "snr": "10*log10(sum(clean**2)/sum((clean-output)**2)), no alignment",
+            "scored_region": ("first valid_samples samples (samples.csv column)"
+                              if "valid_samples" in manifest.columns else "whole file"),
             "aggregation": "unweighted mean over files",
             "scored_files": "denoised WAV files as written by denoise.py"}
     (out / f"{args.split}_run.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

@@ -9,7 +9,7 @@
 
 ## 실행 방법
 
-Python 3.10 이상에서 동작합니다 (Python 3.10, 3.12, 3.13에서 확인).
+Python 3.10 이상에서 동작합니다 (Python 3.10, 3.12, 3.13, 3.14에서 확인).
 
 ```bash
 # 1. 패키지 설치
@@ -61,15 +61,19 @@ python tools/check_io.py          # input/ 과 output/ 비교
 
 ## Validation 평가 결과
 
-> 작성 예정: Validation 데이터 평가 후 이 표를 채웁니다.
+1회차(`round-01`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
 
 | 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
 | --- | ---: | ---: | ---: |
-| Noisy (처리 전) | | | |
-| 제출 알고리즘 | | | |
+| Noisy (처리 전) | 164 | 9.63 | 1.395 |
+| 제출 알고리즘 (Wiener) | 164 | 13.12 | 1.599 |
+| 개선량 | | +3.49 | +0.204 |
+
+PESQ 계산 실패 파일은 0개입니다. 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
 
 평가 방법은 베이스라인 노트북과 같습니다.
 
+- **평가 구간:** `samples.csv`에 `valid_samples` 열이 있으면 노트북처럼 앞에서부터 그 길이까지만 채점하고(잡음 제거는 파일 전체에 적용), 없으면 파일 전체를 채점합니다. 현재 Validation 데이터에는 이 열이 없어 파일 전체를 채점했습니다.
 - **SNR:** $10\log_{10}\big(\sum s^2 / \sum (s-\hat s)^2\big)$, 레벨·시간 정렬 없음.
 - **PESQ:** 16 kHz wideband (`pesq` 0.0.4, mode `wb`).
 - **집계:** 파일별 점수의 단순 평균.
