@@ -105,13 +105,6 @@ requirements-eval.txt   평가에만 필요한 패키지
 input/  output/         테스트 입력 / 결과 폴더
 ```
 
-## 개발 도구 (선택)
-
-`.claude/` 폴더는 Claude Code로 개발할 때만 쓰는 설정이며, 실행과 평가에는 필요하지 않습니다.
-
-- `.claude/settings.json`: 팀 공용 플러그인 (`superpowers`, `commit-commands`)
-- `.claude/skills/`: 참고 문헌 확인, 통계 비교, 그래프 작성 스킬 (출처와 라이선스는 해당 폴더의 README 참고)
-
 ## 참고 문헌
 
 - Y. Ephraim and D. Malah, "Speech Enhancement Using a Minimum Mean-Square Error Short-Time Spectral Amplitude Estimator," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 32, no. 6, pp. 1109–1121, 1984. (decision-directed 사전 SNR 추정)
