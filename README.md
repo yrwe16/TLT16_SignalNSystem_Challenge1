@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 팀명 | 저희가왜마지막이조 |
+| 팀명 | 저희가왜마지막이조(WAWTL, WhyAreWeTheLast) |
 | 제출 회차 | 1회차 |
 | 평가 버전 | Git 태그 `round-01` (커밋 해시는 런어스 제출 글에 함께 기재) |
 | 알고리즘 | Wiener Filter (decision-directed 사전 SNR 추정), 딥러닝·머신러닝 미사용 |
