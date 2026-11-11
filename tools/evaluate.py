@@ -103,7 +103,12 @@ def parse_overrides(items):
         key, sep, value = item.partition("=")
         if not sep or key not in types:
             raise SystemExit(f"--set expects key=value with a Config field, got {item!r}")
-        changes[key] = types[key](value)
+        if types[key] is bool:  # bool("False") would be True
+            if value.lower() not in ("true", "false", "1", "0"):
+                raise SystemExit(f"--set {key} expects true/false, got {value!r}")
+            changes[key] = value.lower() in ("true", "1")
+        else:
+            changes[key] = types[key](value)
     return replace(CONFIG, **changes)
 
 

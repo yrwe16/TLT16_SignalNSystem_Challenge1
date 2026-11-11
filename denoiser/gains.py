@@ -165,3 +165,110 @@ def omlsa_decision_directed(z, noise, sample_rate, n_fft, cfg):
         else:  # stage-1 DD: previous output power, no xi floor
             previous = np.abs(enhanced[:, frame]) ** 2 / noise_tf[:, frame]
     return enhanced
+
+
+EULER_GAMMA = 0.5772156649015329
+
+
+def _per_frame_factor(alpha, hop_seconds, reference_hop):
+    """Convert a per-frame smoothing factor given at reference_hop to the actual hop
+    (same time constant); reference_hop=None keeps the value per frame."""
+    return alpha if reference_hop is None else alpha ** (hop_seconds / reference_hop)
+
+
+def cepstral_prior_snr(posterior_snr, noise_tf, sample_rate, hop_seconds, cfg):
+    """A priori SNR by selective cepstro-temporal smoothing (Breithaupt, Gerkmann & Martin,
+    ICASSP 2008, pp. 4897-4900, eqs. (3)-(13), Table 1).
+
+    lambda_ml = N * max(gamma - 1, xi_ml_min)                                   (3)
+    c_ml = IDFT(log lambda_ml); c = alpha(q,l) c(l-1) + (1 - alpha(q,l)) c_ml   (4, 5)
+    alpha = alpha_pitch on Q_pitch, else abar; abar = beta abar(l-1) + (1-beta) a_const (6, 7)
+    Q_pitch = q_pitch +- dq if the Hamming-smoothed cepstral peak in fs/300..fs/70 is
+    >= thr and c_ml(1) > 0                                                     (8)-(10)
+    lambda_s = exp(kappa + DFT(c));  xi = max(lambda_s / N, xi_min)            (12, 13)
+    The cepstrum is taken of log(lambda_ml) including the noise power, so that the pitch
+    peak and the spectral-tilt test c_ml(1) > 0 see the speech power estimate (eq. 10).
+    """
+    bins, frames = posterior_snr.shape
+    m = 2 * (bins - 1)
+    ref = None if cfg.ceps_per_frame_constants else 0.016  # paper: 16 kHz, M=512, shift M/2
+    scale = lambda a: _per_frame_factor(a, hop_seconds, ref)
+    a_const = np.full(m // 2 + 1, scale(0.97))
+    a_const[:3] = scale(0.5)
+    a_const[3:20] = scale(0.7)
+    a_pitch, beta = scale(0.2), scale(0.96)
+    q_low = int(np.floor(sample_rate / 300.0))
+    q_high = min(int(np.floor(sample_rate / 70.0)), m // 2)
+    window = np.hamming(8)
+    if cfg.ceps_window_normalized:
+        window = window / window.sum()
+    xi_ml_min = 10 ** (-27 / 10)
+    xi_min = 10 ** (cfg.ceps_xi_min_db / 10)
+    kappa = cfg.ceps_kappa * EULER_GAMMA
+    log_ml = np.log(np.maximum(posterior_snr - 1.0, xi_ml_min) * noise_tf)
+    c_ml_all = np.fft.irfft(log_ml, n=m, axis=0)[: m // 2 + 1]  # (q, frames), symmetric
+    smoothed = c_ml_all[:, 0].copy()
+    abar = a_const.copy()
+    xi = np.empty_like(posterior_snr)
+    voiced = 0
+    for t in range(frames):
+        c_ml = c_ml_all[:, t]
+        abar = beta * abar + (1 - beta) * a_const
+        alpha = abar.copy()
+        lowpass = np.convolve(c_ml, window, mode="same")
+        q_pitch = q_low + int(np.argmax(lowpass[q_low:q_high + 1]))
+        if lowpass[q_pitch] >= cfg.ceps_threshold and c_ml[1] > 0:
+            span = slice(max(q_pitch - 2, 0), q_pitch + 3)
+            alpha[span] = a_pitch
+            abar[span] = a_pitch  # abar(q,l) feeds the next frame's recursion (7)
+            voiced += 1
+        if t:
+            smoothed = alpha * smoothed + (1 - alpha) * c_ml
+        full = np.concatenate([smoothed, smoothed[-2:0:-1]])
+        log_s = np.fft.rfft(full).real
+        xi[:, t] = np.maximum(np.exp(kappa + log_s) / noise_tf[:, t], xi_min)
+    cepstral_prior_snr.voiced_share = voiced / max(frames, 1)
+    return xi
+
+
+def ml_2d_prior_snr(posterior_snr, cfg):
+    """Offline variant: centred 2-D (frequency x time) moving average of max(gamma-1, 0)."""
+    from scipy.ndimage import uniform_filter
+    ml = np.maximum(posterior_snr - 1.0, 0.0)
+    xi = uniform_filter(ml, size=(cfg.ml2d_bins, cfg.ml2d_frames), mode="nearest")
+    return np.maximum(xi, 10 ** (cfg.ceps_xi_min_db / 10))
+
+
+def _dd_prior_snr(posterior_snr, noise_tf, z, smoothing, gain_floor):
+    """The stage-1 DD-LSA loop, returning xi for every frame."""
+    xi = np.empty_like(posterior_snr)
+    previous_clean_power = np.zeros(z.shape[0])
+    for frame in range(z.shape[1]):
+        instantaneous = np.maximum(posterior_snr[:, frame] - 1.0, 0.0)
+        if frame == 0:
+            prior_snr = instantaneous
+        else:
+            prior_snr = (smoothing * previous_clean_power / noise_tf[:, frame]
+                         + (1 - smoothing) * instantaneous)
+        xi[:, frame] = prior_snr
+        gain = np.maximum(lsa_gain(prior_snr, posterior_snr[:, frame]), gain_floor)
+        previous_clean_power = np.abs(gain * z[:, frame]) ** 2
+    return xi
+
+
+def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg):
+    """MMSE-LSA gain (stage 1 floor) with an alternative a priori SNR estimator."""
+    power = np.abs(z) ** 2
+    noise_tf = _per_frame(noise, z.shape)
+    gamma = power / noise_tf
+    if cfg.prior_snr == "cepstral":
+        xi = cepstral_prior_snr(gamma, noise_tf, sample_rate, hop_seconds, cfg)
+    elif cfg.prior_snr == "ml_2d":
+        xi = ml_2d_prior_snr(gamma, cfg)
+    else:  # "dd_bidir": mean of forward and time-reversed DD estimates
+        fwd = _dd_prior_snr(gamma, noise_tf, z, cfg.lsa_smoothing, cfg.lsa_gain_floor)
+        bwd = _dd_prior_snr(gamma[:, ::-1], noise_tf[:, ::-1], z[:, ::-1],
+                            cfg.lsa_smoothing, cfg.lsa_gain_floor)[:, ::-1]
+        xi = 0.5 * (fwd + bwd)
+    gain = np.maximum(lsa_gain(xi, gamma), cfg.lsa_gain_floor)
+    return gain * z

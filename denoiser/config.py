@@ -68,6 +68,25 @@ class Config:
     # "output" = stage-1 DD (previous output power, no xi floor), variant.
     omlsa_dd: str = "h1"
 
+    # A priori SNR (roadmap stage 4, applies with gain_rule="lsa" and omlsa=False):
+    # "dd" = decision-directed (stage 1); "cepstral" = selective cepstro-temporal smoothing
+    # (Breithaupt, Gerkmann & Martin, ICASSP 2008, pp. 4897-4900, constants from Table 1,
+    # read in the original); offline variants: "dd_bidir" = mean of forward and backward DD,
+    # "ml_2d" = centred 2-D moving average of the ML SNR.
+    prior_snr: str = "dd"
+    # Table 1 is for a 16 ms frame shift (M = 512, shift M/2 at 16 kHz); False converts the
+    # per-frame constants (alpha_const, alpha_pitch, beta) to our hop with equal time constants.
+    ceps_per_frame_constants: bool = False
+    ceps_kappa: float = 0.5               # bias correction in units of Euler's constant (Table: 0.5)
+    ceps_xi_min_db: float = -25.0         # xi_min (Table 1)
+    ceps_threshold: float = 0.2           # Lambda_thr (Table 1)
+    # Normalisation of the 8-tap Hamming window in eq. (8) is not stated in the paper.
+    # Normalised (sum 1) marks ~27 % of noisy Validation frames voiced; unnormalised ~92 %
+    # (more than the 78 % on clean speech), so the normalised window is the default.
+    ceps_window_normalized: bool = True
+    ml2d_bins: int = 3
+    ml2d_frames: int = 5
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -110,6 +129,12 @@ class Config:
             raise ValueError("omlsa_gain_floor must be in (0, 1].")
         if self.omlsa and self.gain_rule != "lsa":
             raise ValueError("omlsa requires gain_rule='lsa'.")
+        if self.prior_snr not in ("dd", "cepstral", "dd_bidir", "ml_2d"):
+            raise ValueError("prior_snr must be 'dd', 'cepstral', 'dd_bidir' or 'ml_2d'.")
+        if self.prior_snr != "dd" and (self.gain_rule != "lsa" or self.omlsa):
+            raise ValueError("prior_snr other than 'dd' requires gain_rule='lsa', omlsa=False.")
+        if self.ceps_kappa < 0 or self.ml2d_bins < 1 or self.ml2d_frames < 1:
+            raise ValueError("ceps_kappa must be >= 0 and ml2d sizes >= 1.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
