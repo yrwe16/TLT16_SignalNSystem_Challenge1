@@ -48,29 +48,29 @@ python tools/check_io.py          # input/ 과 output/ 비교
 2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 주파수 방향으로 3-bin 평활화합니다. 파일마다 하나의 값을 사용하며 Noisy 입력만 사용합니다.
 3. **이득 계산:** 사후 SNR $\gamma_t = |Y_t|^2 / N$, 사전 SNR $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$ (decision-directed).
    이득 규칙은 `gain_rule`로 고르며, 이득을 곱한 뒤 입력 위상으로 복원합니다.
-   - `wiener` (1회차 제출본): $G_t = \mathrm{clip}\big(\xi_t/(1+\xi_t),\ g_{\min},\ 1\big)$
-   - `lsa` (현재 기본값, 다음 회차 후보): MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985). 논문처럼 상한은 두지 않습니다.
+   - `wiener` (현재 기본값, 1회차 제출본): $G_t = \mathrm{clip}\big(\xi_t/(1+\xi_t),\ g_{\min},\ 1\big)$
+   - `lsa` (다음 회차 후보): MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985). 논문처럼 상한은 두지 않습니다.
 4. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
 
 | 파라미터 | 값 | 위치 |
 | --- | --- | --- |
 | 창 길이 / 겹침 | 32 ms / 75 % | `denoiser/config.py` |
 | 잡음 추정 프레임 비율 | 0.20 | `noise_fraction` |
-| 이득 규칙 | `lsa` (1회차는 `wiener`) | `gain_rule` |
+| 이득 규칙 | `wiener` (다음 회차 후보는 `lsa`) | `gain_rule` |
 | LSA decision-directed 계수 $a$ | 0.95 | `lsa_smoothing` |
 | LSA 최소 이득 $g_{\min}$ | 0.178 (−15 dB) | `lsa_gain_floor` |
 | Wiener decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
 | Wiener 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
-`gain_rule="wiener"`로 바꾸면 1회차 제출본과 바이트 단위로 같은 출력을 냅니다.
+`gain_rule="lsa"`로 바꾸면 1단계 실험(MMSE-LSA)의 출력을 냅니다. 이 스위치를 추가해도 `wiener` 출력은 이전과 바이트 단위로 같습니다.
 
 모든 파라미터는 코드(`denoiser/config.py`)에 포함되어 있으며 별도 설정 파일이 필요 없습니다.
 
 ## Validation 평가 결과
 
 1회차(`round-01`) 제출 버전(Wiener)으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
-현재 `main`의 기본값(MMSE-LSA)은 아직 제출하지 않은 실험 결과이며, 아래 "실험 기록"에 따로 정리했습니다.
+MMSE-LSA(`gain_rule="lsa"`)는 아직 제출하지 않은 실험 결과이며, 아래 "실험 기록"에 따로 정리했습니다.
 
 | 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
 | --- | ---: | ---: | ---: |
@@ -107,7 +107,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | 단계 | 변경 | Train PESQ-WB | Validation PESQ-WB | Validation SNR (dB) | 결정 |
 | --- | --- | ---: | ---: | ---: | --- |
 | 0 | Wiener (1회차 제출본) | 1.604 | 1.599 | 13.12 | 기준 |
-| 1 | + 이득 함수 MMSE-LSA (−15 dB, $a$ = 0.95) | 1.763 | 1.730 | 13.57 | 채택 (Wilcoxon $p$ = 7×10⁻¹³) |
+| 1 | + 이득 함수 MMSE-LSA (−15 dB, $a$ = 0.95) | 1.763 | 1.730 | 13.57 | 채택, 다음 회차 제출 예정 (Wilcoxon $p$ = 7×10⁻¹³) |
 
 ```bash
 # 설정을 바꿔 평가 (결과를 실험 폴더에 저장)

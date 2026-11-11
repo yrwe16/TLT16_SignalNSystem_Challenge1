@@ -17,7 +17,9 @@ class Config:
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters so
     # gain_rule="wiener" reproduces the round-01 submission byte for byte.
-    gain_rule: str = "lsa"  # adopted 2026-11-10 (results/experiments.csv)
+    # round-01 submission uses "wiener"; "lsa" was adopted on 2026-11-10 for a later round
+    # (results/experiments.csv).
+    gain_rule: str = "wiener"
 
     # Wiener filter with decision-directed a priori SNR (Ephraim & Malah, 1984).
     wiener_smoothing: float = 0.98
