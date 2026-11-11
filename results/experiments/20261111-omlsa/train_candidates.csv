@@ -1,0 +1,20 @@
+﻿candidate,omlsa_spp,omlsa_dd,g_min_db,pesq_wb,snr_db,delta_pesq_vs_stage1
+stage1-lsa-g15-a95 (omlsa=False),,,-15.0,1.7627,13.254,0.0
+train-omlsa-cohen-dd_out-g10,cohen,output,-10.0,1.6828,12.86,-0.0799
+train-omlsa-cohen-dd_out-g12,cohen,output,-12.0,1.699,12.67,-0.0637
+train-omlsa-cohen-dd_out-g15,cohen,output,-15.0,1.6933,12.149,-0.0694
+train-omlsa-cohen-dd_out-g18,cohen,output,-18.0,1.6291,11.633,-0.1336
+train-omlsa-cohen-g12,cohen,h1,-12.0,1.7184,12.977,-0.0443
+train-omlsa-cohen-g15,cohen,h1,-15.0,1.7293,12.914,-0.0334
+train-omlsa-cohen-g18,cohen,h1,-18.0,1.709,12.832,-0.0537
+train-omlsa-cohen-g20,cohen,h1,-20.0,1.6805,12.781,-0.0822
+train-omlsa-cohen-g25,cohen,h1,-25.0,1.5843,12.68,-0.1784
+train-omlsa-posterior-dd_out-g10,posterior,output,-10.0,1.6925,13.092,-0.0702
+train-omlsa-posterior-dd_out-g12,posterior,output,-12.0,1.7042,13.144,-0.0585
+train-omlsa-posterior-dd_out-g15,posterior,output,-15.0,1.702,13.135,-0.0607
+train-omlsa-posterior-dd_out-g18,posterior,output,-18.0,1.6809,13.081,-0.0818
+train-omlsa-posterior-g12,posterior,h1,-12.0,1.7179,13.182,-0.0448
+train-omlsa-posterior-g15,posterior,h1,-15.0,1.7193,13.209,-0.0434
+train-omlsa-posterior-g18,posterior,h1,-18.0,1.7004,13.189,-0.0623
+train-omlsa-posterior-g20,posterior,h1,-20.0,1.6805,13.163,-0.0822
+train-omlsa-posterior-g25,posterior,h1,-25.0,1.6182,13.087,-0.1445

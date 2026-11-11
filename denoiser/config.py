@@ -54,6 +54,20 @@ class Config:
     # time-reversed pass (offline variant, no literature support).
     spp_direction: str = "forward"
 
+    # OM-LSA (roadmap stage 3, applies with gain_rule="lsa"): G = G_H1^p * G_min^(1-p)
+    # (Cohen & Berdugo, Signal Processing 81(11):2403-2418, 2001). The DD a priori SNR uses
+    # the previous G_H1^2*gamma and is floored at G_min^2, as in the BSD-3 reference
+    # chenwj1989/python-speech-enhancement pns/suppression_gain.py (f38fde7).
+    # omlsa_spp: "cohen" = a priori speech absence q from smoothed xi (local / global /
+    # frame terms, Cohen 2001), p = 1/(1 + q/(1-q)*(1+xi)*exp(-v));
+    # "posterior" = stage-2 SPP with a fixed xi_H1 (spp_snr_db, spp_prior).
+    omlsa: bool = False
+    omlsa_spp: str = "cohen"
+    omlsa_gain_floor: float = 0.1778279410038923  # G_min; stage-1 floor (-15 dB)
+    # omlsa_dd: "h1" = Cohen (previous G_H1^2*gamma, xi >= G_min^2);
+    # "output" = stage-1 DD (previous output power, no xi floor), variant.
+    omlsa_dd: str = "h1"
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -88,6 +102,14 @@ class Config:
             raise ValueError("spp_prob_threshold must be in (0, 1], spp_prob_safety in [0, 1).")
         if not 0 < self.spp_init_percentile < 100:
             raise ValueError("spp_init_percentile must be in (0, 100).")
+        if self.omlsa_spp not in ("cohen", "posterior"):
+            raise ValueError("omlsa_spp must be 'cohen' or 'posterior'.")
+        if self.omlsa_dd not in ("h1", "output"):
+            raise ValueError("omlsa_dd must be 'h1' or 'output'.")
+        if not 0 < self.omlsa_gain_floor <= 1:
+            raise ValueError("omlsa_gain_floor must be in (0, 1].")
+        if self.omlsa and self.gain_rule != "lsa":
+            raise ValueError("omlsa requires gain_rule='lsa'.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
