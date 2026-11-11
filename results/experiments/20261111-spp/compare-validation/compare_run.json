@@ -1,0 +1,6 @@
+{
+  "base": "results\\experiments\\20261110-lsa\\validation-lsa-g15-a95",
+  "new": "results\\experiments\\20261111-spp\\validation-spp-lowenergy-bidir-x10",
+  "split": "validation",
+  "test": "Wilcoxon signed-rank, two-sided, zero_method=wilcox; paired t-test; bootstrap 95% CI of mean difference (10000 resamples, seed 0)"
+}

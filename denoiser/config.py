@@ -31,6 +31,29 @@ class Config:
     lsa_smoothing: float = 0.95
     lsa_gain_floor: float = 0.1778279410038923  # 10**(-15/20), -15 dB
 
+    # Noise PSD (roadmap stage 2): "fixed" = one estimate per file (lowest-energy frames,
+    # round-01), "spp" = unbiased MMSE speech-presence-probability tracking per frame
+    # (Gerkmann & Hendriks, IEEE TASLP 20(4):1383-1393, 2012). Constants follow VOICEBOX
+    # v_estnoiseg defaults (read only, LGPL; not copied). Time constants are converted to
+    # per-frame factors with the actual hop (0.8 / 0.9 at a 16 ms hop, as in the paper).
+    noise_tracker: str = "fixed"
+    spp_snr_db: float = 15.0             # xi_H1, speech-present a priori SNR (asnr)
+    spp_prior: float = 0.5               # prior speech presence probability (pspri)
+    spp_noise_time: float = 0.0717       # noise PSD smoothing time constant, s (tax)
+    spp_prob_time: float = 0.152         # SPP smoothing time constant, s (tap)
+    spp_prob_threshold: float = 0.99     # stagnation threshold on the smoothed SPP (psthr)
+    spp_prob_safety: float = 0.01        # SPP capped at 1 - safety above threshold (pnsaf)
+    # Initial noise PSD: "first" = VOICEBOX (init_scale x mean periodogram of the first
+    # 1 + init_time/hop frames), "lowenergy" = the round-01 fixed estimate,
+    # "percentile" = per-bin low percentile of the whole clip / -ln(1-p) (offline variant).
+    spp_init: str = "first"
+    spp_init_time: float = 0.064         # tavini
+    spp_init_scale: float = 0.5          # psini (also the initial smoothed SPP)
+    spp_init_percentile: float = 10.0
+    # "forward" = causal tracking as published; "bidirectional" = mean of a forward and a
+    # time-reversed pass (offline variant, no literature support).
+    spp_direction: str = "forward"
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -51,6 +74,20 @@ class Config:
             raise ValueError("lsa_smoothing must be in [0, 1).")
         if not 0 <= self.lsa_gain_floor <= 1:
             raise ValueError("lsa_gain_floor must be in [0, 1].")
+        if self.noise_tracker not in ("fixed", "spp"):
+            raise ValueError("noise_tracker must be 'fixed' or 'spp'.")
+        if self.spp_init not in ("first", "lowenergy", "percentile"):
+            raise ValueError("spp_init must be 'first', 'lowenergy' or 'percentile'.")
+        if self.spp_direction not in ("forward", "bidirectional"):
+            raise ValueError("spp_direction must be 'forward' or 'bidirectional'.")
+        if not 0 < self.spp_prior < 1 or not 0 < self.spp_init_scale <= 1:
+            raise ValueError("spp_prior must be in (0, 1) and spp_init_scale in (0, 1].")
+        if min(self.spp_noise_time, self.spp_prob_time) <= 0 or self.spp_init_time < 0:
+            raise ValueError("SPP time constants must be positive.")
+        if not 0 < self.spp_prob_threshold <= 1 or not 0 <= self.spp_prob_safety < 1:
+            raise ValueError("spp_prob_threshold must be in (0, 1], spp_prob_safety in [0, 1).")
+        if not 0 < self.spp_init_percentile < 100:
+            raise ValueError("spp_init_percentile must be in (0, 100).")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

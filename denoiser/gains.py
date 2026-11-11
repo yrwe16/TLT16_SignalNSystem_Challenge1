@@ -4,6 +4,12 @@ import numpy as np
 from scipy.special import exp1
 
 
+def _per_frame(noise, shape):
+    """Noise PSD as a (bins, frames) view: one vector per file or one vector per frame."""
+    noise = np.asarray(noise, dtype=np.float64)
+    return np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, shape)
+
+
 def wiener_decision_directed(z, noise, smoothing, gain_floor):
     """Wiener gain with a decision-directed a priori SNR (Ephraim & Malah, 1984).
 
@@ -11,15 +17,16 @@ def wiener_decision_directed(z, noise, smoothing, gain_floor):
     The first frame uses max(gamma_0 - 1, 0).
     """
     power = np.abs(z) ** 2
-    posterior_snr = power / noise[:, None]
+    noise_tf = _per_frame(noise, z.shape)
+    posterior_snr = power / noise_tf
     enhanced = np.empty_like(z)
-    previous_clean_power = np.zeros_like(noise)
+    previous_clean_power = np.zeros(z.shape[0])
     for frame in range(z.shape[1]):
         instantaneous = np.maximum(posterior_snr[:, frame] - 1.0, 0.0)
         if frame == 0:
             prior_snr = instantaneous
         else:
-            prior_snr = (smoothing * previous_clean_power / noise
+            prior_snr = (smoothing * previous_clean_power / noise_tf[:, frame]
                          + (1 - smoothing) * instantaneous)
         gain = np.clip(prior_snr / (1 + prior_snr), gain_floor, 1)
         enhanced[:, frame] = gain * z[:, frame]
@@ -46,15 +53,16 @@ def lsa_decision_directed(z, noise, smoothing, gain_floor):
     The first frame uses max(gamma_0 - 1, 0). No upper clip, as in the paper.
     """
     power = np.abs(z) ** 2
-    posterior_snr = power / noise[:, None]
+    noise_tf = _per_frame(noise, z.shape)
+    posterior_snr = power / noise_tf
     enhanced = np.empty_like(z)
-    previous_clean_power = np.zeros_like(noise)
+    previous_clean_power = np.zeros(z.shape[0])
     for frame in range(z.shape[1]):
         instantaneous = np.maximum(posterior_snr[:, frame] - 1.0, 0.0)
         if frame == 0:
             prior_snr = instantaneous
         else:
-            prior_snr = (smoothing * previous_clean_power / noise
+            prior_snr = (smoothing * previous_clean_power / noise_tf[:, frame]
                          + (1 - smoothing) * instantaneous)
         gain = np.maximum(lsa_gain(prior_snr, posterior_snr[:, frame]), gain_floor)
         enhanced[:, frame] = gain * z[:, frame]

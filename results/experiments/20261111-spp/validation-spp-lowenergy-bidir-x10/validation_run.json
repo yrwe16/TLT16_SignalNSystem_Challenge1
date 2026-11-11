@@ -1,0 +1,40 @@
+{
+  "split": "validation",
+  "files": 164,
+  "config": {
+    "frame_seconds": 0.032,
+    "overlap_ratio": 0.75,
+    "noise_fraction": 0.2,
+    "gain_rule": "lsa",
+    "wiener_smoothing": 0.98,
+    "wiener_gain_floor": 0.05,
+    "lsa_smoothing": 0.95,
+    "lsa_gain_floor": 0.1778279410038923,
+    "noise_tracker": "spp",
+    "spp_snr_db": 10.0,
+    "spp_prior": 0.5,
+    "spp_noise_time": 0.0717,
+    "spp_prob_time": 0.152,
+    "spp_prob_threshold": 0.99,
+    "spp_prob_safety": 0.01,
+    "spp_init": "lowenergy",
+    "spp_init_time": 0.064,
+    "spp_init_scale": 0.5,
+    "spp_init_percentile": 10.0,
+    "spp_direction": "bidirectional",
+    "pcm_peak_limit": 0.999
+  },
+  "overrides": [
+    "gain_rule=lsa",
+    "noise_tracker=spp",
+    "spp_init=lowenergy",
+    "spp_direction=bidirectional",
+    "spp_snr_db=10"
+  ],
+  "python": "3.14.8",
+  "pesq_mode": "wb",
+  "snr": "10*log10(sum(clean**2)/sum((clean-output)**2)), no alignment",
+  "scored_region": "whole file",
+  "aggregation": "unweighted mean over files",
+  "scored_files": "denoised WAV files as written by denoise.py"
+}

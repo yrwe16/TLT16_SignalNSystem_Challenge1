@@ -61,6 +61,7 @@ python tools/check_io.py          # input/ 과 output/ 비교
 | LSA 최소 이득 $g_{\min}$ | 0.178 (−15 dB) | `lsa_gain_floor` |
 | Wiener decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
 | Wiener 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
+| 잡음 추정 방식 | `fixed` (단계 2 실험은 `spp`, 미채택) | `noise_tracker`, `spp_*` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
 `gain_rule="lsa"`로 바꾸면 1단계 실험(MMSE-LSA)의 출력을 냅니다. 이 스위치를 추가해도 `wiener` 출력은 이전과 바이트 단위로 같습니다.
@@ -108,6 +109,11 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | --- | --- | ---: | ---: | ---: | --- |
 | 0 | Wiener (1회차 제출본) | 1.604 | 1.599 | 13.12 | 기준 |
 | 1 | + 이득 함수 MMSE-LSA (−15 dB, $a$ = 0.95) | 1.763 | 1.730 | 13.57 | 채택, 다음 회차 제출 예정 (Wilcoxon $p$ = 7×10⁻¹³) |
+| 2 | + 잡음 추적 MMSE-SPP (양방향, ξ_H1 = 10 dB) | 1.779 | 1.741 | 13.15 | 미채택 (Validation $p$ = 0.56, aircraft_cockpit −0.11) |
+
+단계 2는 1단계 설정 위에 잡음 PSD를 프레임마다 추적하는 unbiased MMSE-SPP(Gerkmann & Hendriks, 2012)를 더한 실험입니다 (`noise_tracker="spp"`, 기본값은 `"fixed"`).
+논문 그대로의 인과 추적(VOICEBOX 기본값)은 Train에서 1단계보다 0.064 낮았고, 비인과(양방향) 변형만 Train에서 +0.016 올랐습니다.
+Validation에서는 유의하지 않았고 정상 잡음(조종석·광대역)이 나빠져 채택하지 않았습니다. 바람 잡음은 두 데이터 모두에서 좋아졌습니다 (Validation +0.068).
 
 ```bash
 # 설정을 바꿔 평가 (결과를 실험 폴더에 저장)
@@ -126,7 +132,7 @@ denoise.py              실행 파일 (input/ → output/)
 denoiser/
   config.py             모든 파라미터
   stft.py               STFT / ISTFT
-  noise_estimation.py   잡음 파워 추정
+  noise_estimation.py   잡음 파워 추정 (파일 고정값 / MMSE-SPP 추적)
   gains.py              Wiener / MMSE-LSA 이득 (decision-directed)
   pipeline.py           신호·파일·폴더 단위 처리
 tools/
@@ -143,5 +149,6 @@ input/  output/         테스트 입력 / 결과 폴더
 
 - Y. Ephraim and D. Malah, "Speech Enhancement Using a Minimum Mean-Square Error Short-Time Spectral Amplitude Estimator," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 32, no. 6, pp. 1109–1121, 1984. (decision-directed 사전 SNR 추정)
 - Y. Ephraim and D. Malah, "Speech Enhancement Using a Minimum Mean-Square Error Log-Spectral Amplitude Estimator," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 33, no. 2, pp. 443–445, 1985, DOI 10.1109/TASSP.1985.1164550. (MMSE-LSA 이득)
-- 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m` (LGPL-3).
+- T. Gerkmann and R. C. Hendriks, "Unbiased MMSE-Based Noise Power Estimation With Low Complexity and Low Tracking Delay," *IEEE Transactions on Audio, Speech, and Language Processing*, vol. 20, no. 4, pp. 1383–1393, 2012, DOI 10.1109/TASL.2011.2180896. (단계 2 실험, 미채택)
+- 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).
 - 코드 출처: 강의 제공 베이스라인 노트북 `noise_reduction_baselines.ipynb`의 `stft_audio`, `inverse_stft`, `estimate_noise_power`, `wiener_filter`.

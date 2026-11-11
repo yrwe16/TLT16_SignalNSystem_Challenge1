@@ -7,7 +7,7 @@ import soundfile as sf
 
 from .config import CONFIG
 from .gains import lsa_decision_directed, wiener_decision_directed
-from .noise_estimation import lowest_energy_frames
+from .noise_estimation import lowest_energy_frames, tracked_noise
 from .stft import as_waveform, istft, stft
 
 
@@ -18,7 +18,10 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         return x.copy()
     n_fft, hop = cfg.stft_sizes(sample_rate)
     _, times, z = stft(x, sample_rate, n_fft, hop)
-    noise = lowest_energy_frames(z, times, len(x), sample_rate, n_fft, cfg.noise_fraction)
+    if cfg.noise_tracker == "spp":
+        noise = tracked_noise(z, times, len(x), sample_rate, n_fft, hop, cfg)
+    else:
+        noise = lowest_energy_frames(z, times, len(x), sample_rate, n_fft, cfg.noise_fraction)
     if cfg.gain_rule == "lsa":
         enhanced = lsa_decision_directed(z, noise, cfg.lsa_smoothing, cfg.lsa_gain_floor)
     else:

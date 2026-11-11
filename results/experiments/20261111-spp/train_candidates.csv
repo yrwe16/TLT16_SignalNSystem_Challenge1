@@ -1,0 +1,19 @@
+﻿candidate,noise_tracker,spp_init,spp_direction,spp_snr_db,spp_init_percentile,pesq_wb,snr_db,delta_pesq_vs_stage1
+stage1-lsa-g15-a95 (noise_tracker=fixed),fixed,,,,,1.7627,13.254,0.0
+train-spp-first-bidir,spp,first,bidirectional,15.0,,1.7019,9.225,-0.0608
+train-spp-first-fwd,spp,first,forward,15.0,,1.6984,10.321,-0.0643
+train-spp-lowenergy-bidir,spp,lowenergy,bidirectional,15.0,,1.764,11.956,0.0013
+train-spp-lowenergy-bidir-x10,spp,lowenergy,bidirectional,10.0,,1.779,12.878,0.0163
+train-spp-lowenergy-bidir-x20,spp,lowenergy,bidirectional,20.0,,1.7208,10.246,-0.0419
+train-spp-lowenergy-bidir-x25,spp,lowenergy,bidirectional,25.0,,1.6729,8.473,-0.0898
+train-spp-lowenergy-bidir-x5,spp,lowenergy,bidirectional,5.0,,1.775,13.048,0.0123
+train-spp-lowenergy-bidir-x7.5,spp,lowenergy,bidirectional,7.5,,1.7763,13.018,0.0136
+train-spp-lowenergy-fwd,spp,lowenergy,forward,15.0,,1.748,12.335,-0.0147
+train-spp-lowenergy-fwd-x10,spp,lowenergy,forward,10.0,,1.7605,12.873,-0.0022
+train-spp-lowenergy-fwd-x20,spp,lowenergy,forward,20.0,,1.7076,11.274,-0.0551
+train-spp-lowenergy-fwd-x25,spp,lowenergy,forward,25.0,,1.6565,10.025,-0.1062
+train-spp-lowenergy-fwd-x5,spp,lowenergy,forward,5.0,,1.7584,12.971,-0.0043
+train-spp-lowenergy-fwd-x7.5,spp,lowenergy,forward,7.5,,1.759,12.952,-0.0037
+train-spp-pct10-bidir,spp,percentile,bidirectional,15.0,10.0,1.7508,11.435,-0.0119
+train-spp-pct10-fwd,spp,percentile,forward,15.0,10.0,1.7381,11.927,-0.0246
+train-spp-pct20-fwd,spp,percentile,forward,15.0,20.0,1.7324,11.794,-0.0303
