@@ -1,0 +1,10 @@
+﻿candidate,phase_mode,f0_smoothing,fade_frames,max_hz,pesq_wb,snr_db,delta_pesq_vs_stage4
+stage4 lsa + dd_bidir (phase_reconstruction=False),,,,,1.7709,13.521,0.0
+train-basic-combi,combi,False,0,4000.0,1.7545,6.676,-0.0164
+train-combi-smooth,combi,True,0,4000.0,1.7527,6.128,-0.0182
+train-frequency,frequency,False,0,4000.0,1.7683,13.36,-0.0026
+train-frequency-smooth,frequency,True,0,4000.0,1.7681,13.363,-0.0028
+train-frequency-smooth-fade3,frequency,True,3,4000.0,1.7715,13.46,0.0006
+train-frequency-smooth-fade3-1k,frequency,True,3,1000.0,1.7739,13.51,0.003
+train-frequency-smooth-fade3-2k,frequency,True,3,2000.0,1.7723,13.486,0.0014
+train-frequency-smooth-fade3-600,frequency,True,3,600.0,1.7743,13.521,0.0034

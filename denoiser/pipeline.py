@@ -9,6 +9,7 @@ from .config import CONFIG
 from .gains import (lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
                     wiener_decision_directed)
 from .noise_estimation import add_tonal_noise, lowest_energy_frames, tracked_noise
+from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
 
 
@@ -33,6 +34,15 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         enhanced = lsa_decision_directed(z, noise, cfg.lsa_smoothing, cfg.lsa_gain_floor)
     else:
         enhanced = wiener_decision_directed(z, noise, cfg.wiener_smoothing, cfg.wiener_gain_floor)
+    if cfg.phase_reconstruction:
+        first_pass = istft(enhanced, len(x), sample_rate, n_fft, hop)
+        centers = np.rint(times * sample_rate).astype(int)
+        f0, voiced = yin_f0(first_pass, sample_rate, centers, cfg)
+        # zero-padded boundary frames have a different effective window: leave them as is
+        voiced &= (centers >= n_fft // 2) & (centers + n_fft // 2 <= len(x))
+        if cfg.phase_smooth:
+            f0, voiced = smooth_track(f0, voiced, cfg)
+        enhanced = reconstruct_phase(enhanced, f0, voiced, sample_rate, n_fft, hop, cfg)
     return istft(enhanced, len(x), sample_rate, n_fft, hop)
 
 

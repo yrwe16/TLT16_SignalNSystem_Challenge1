@@ -64,6 +64,7 @@ python tools/check_io.py          # input/ 과 output/ 비교
 | 잡음 추정 방식 | `fixed` (단계 2 실험은 `spp`, 미채택) | `noise_tracker`, `spp_*` |
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd` (단계 4 채택안은 `dd_bidir`) | `prior_snr`, `ceps_*`, `ml2d_*` |
+| 유성음 위상 복원 | 끔 (단계 5 채택안은 주파수 방향, 600 Hz, 평활·크로스페이드) | `phase_reconstruction`, `phase_*` |
 | 협대역 음 모듈 | 끔 (단계 6 실험, 미채택) | `tonal_module`, `tonal_*` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
@@ -116,6 +117,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | 3 | 1단계 + OM-LSA (Cohen SPP, $G_{\min}$ −15 dB) | 1.729 | 1.690 | 13.13 | 미채택 (Validation −0.040) |
 | 4a | 1단계 + 켑스트럼-시간 평활 사전 SNR (논문 기본형) | 1.726 | | | 미채택 (Train −0.037) |
 | 4b | 1단계 + 양방향 DD 사전 SNR (오프라인 변형) | 1.771 | 1.739 | 13.83 | 채택, 청취 확인 대기 (Wilcoxon $p$ = 7×10⁻⁵) |
+| 5 | 4b + 유성음 위상 복원 (주파수 방향, 600 Hz 이하, 피치 평활·크로스페이드) | 1.774 | 1.743 | 13.78 | 채택 (효과 작음, 청취 확인 대기; Wilcoxon $p$ = 0.004) |
 | 6 | 4b + 협대역 음 추적 잡음 PSD (경보·사이렌 대상) | 1.763 | 1.726 | 12.95 | 미채택 (Validation −0.013) |
 
 단계 2는 1단계 설정 위에 잡음 PSD를 프레임마다 추적하는 unbiased MMSE-SPP(Gerkmann & Hendriks, 2012)를 더한 실험입니다 (`noise_tracker="spp"`, 기본값은 `"fixed"`).
@@ -129,6 +131,11 @@ Validation에서는 유의하지 않았고 정상 잡음(조종석·광대역)�
 논문(Breithaupt 외, 2008)의 켑스트럼-시간 평활(`"cepstral"`)은 Table 1 상수 그대로와 변형 7개 모두 Train에서 1단계보다 낮았습니다 (최고 −0.008).
 오프라인 변형 중 정방향·역방향 decision-directed 추정을 평균하는 `"dd_bidir"`만 Train +0.008, Validation +0.009 ($p$ = 7×10⁻⁵, 파일 67 % 개선)로 두 데이터에서 같은 방향으로 좋아져 채택했습니다.
 문헌 근거가 없는 비인과 처리이며, 개선 폭이 작아 청취 확인 후 다음 회차 제출 설정(`gain_rule="lsa"`, `prior_snr="dd_bidir"`)에 넣습니다.
+
+단계 5는 4b 위에서 유성음 프레임의 위상을 기본 주파수로 복원하는 실험입니다 (Krawczyk & Gerkmann, 2014; `phase_reconstruction`, 기본값 `False`).
+논문 방식(시간·주파수 결합, 4 kHz까지)은 실제 피치 궤적에서 시간 방향 전파가 어긋나 Train −0.016이었습니다.
+주파수 방향만 복원하고, 피치 궤적 평활과 유성음 경계 크로스페이드(오프라인 변형)를 더하고, 복원 대역을 600 Hz 이하로 줄였을 때만 Train +0.003, Validation +0.004 ($p$ = 0.004)로 좋아졌습니다.
+채택 조건은 모두 통과했지만 개선 폭이 매우 작아, 청취 확인 결과에 따라 다음 회차 제출 설정에 넣을지 정합니다.
 
 단계 6은 개선 폭이 가장 작은 잡음 종류인 경보·사이렌(`alarm_siren`, Validation에서 처리 전 대비 +0.27로 파일 10개 이상 종류 중 최저)을 대상으로, 클립 전체에서 오래 이어지는 협대역 피크 궤적을 찾아 잡음 PSD에 더하는 모듈입니다 (`tonal_module`, 기본값 `False`).
 Train 후보 11개가 모두 4b보다 낮았고 (최고 −0.008), Validation에서도 −0.013 (SNR −0.9 dB)이라 채택하지 않았습니다.
@@ -153,6 +160,7 @@ denoiser/
   stft.py               STFT / ISTFT
   noise_estimation.py   잡음 파워 추정 (파일 고정값 / MMSE-SPP 추적)
   gains.py              Wiener / MMSE-LSA / OM-LSA 이득 (decision-directed)
+  phase.py              유성음 위상 복원 (YIN 피치, 고조파 모델)
   pipeline.py           신호·파일·폴더 단위 처리
 tools/
   check_io.py           입출력 규칙 검사
@@ -171,6 +179,8 @@ input/  output/         테스트 입력 / 결과 폴더
 - T. Gerkmann and R. C. Hendriks, "Unbiased MMSE-Based Noise Power Estimation With Low Complexity and Low Tracking Delay," *IEEE Transactions on Audio, Speech, and Language Processing*, vol. 20, no. 4, pp. 1383–1393, 2012, DOI 10.1109/TASL.2011.2180896. (단계 2 실험, 미채택)
 - I. Cohen and B. Berdugo, "Speech enhancement for non-stationary noise environments," *Signal Processing*, vol. 81, no. 11, pp. 2403–2418, 2001, DOI 10.1016/S0165-1684(01)00128-1. (단계 3 실험, 미채택)
 - C. Breithaupt, T. Gerkmann, and R. Martin, "A novel a priori SNR estimation approach based on selective cepstro-temporal smoothing," *Proc. IEEE ICASSP*, pp. 4897–4900, 2008, DOI 10.1109/ICASSP.2008.4518755. (단계 4, 저자 공개 PDF로 수식과 Table 1 상수 대조)
+- M. Krawczyk and T. Gerkmann, "STFT Phase Reconstruction in Voiced Speech for an Improved Single-Channel Speech Enhancement," *IEEE/ACM Transactions on Audio, Speech, and Language Processing*, vol. 22, no. 12, pp. 1931–1940, 2014, DOI 10.1109/TASLP.2014.2354236. (단계 5, 저자 공개 PDF로 수식 대조)
+- A. de Cheveigné and H. Kawahara, "YIN, a fundamental frequency estimator for speech and music," *Journal of the Acoustical Society of America*, vol. 111, no. 4, pp. 1917–1930, 2002. (단계 5의 피치 추정, 학습 없음)
 - R. J. McAulay and T. F. Quatieri, "Speech analysis/synthesis based on a sinusoidal representation," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 34, no. 4, pp. 744–754, 1986, DOI 10.1109/TASSP.1986.1164910. (단계 6 피크 궤적 연결 방식, 미채택; 상수는 자체 설정)
 - 단계 3의 음성 부재 확률 상수와 OM-LSA decision-directed 방식: chenwj1989/python-speech-enhancement `pns/suppression_gain.py` (커밋 f38fde7, BSD-3, Copyright (c) 2019 wjchen)를 읽고 직접 구현.
 - 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).

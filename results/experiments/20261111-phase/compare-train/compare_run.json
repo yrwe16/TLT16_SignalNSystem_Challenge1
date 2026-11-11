@@ -1,0 +1,6 @@
+{
+  "base": "results\\experiments\\20261111-cepstral\\train-dd-bidir",
+  "new": "results\\experiments\\20261111-phase\\train-frequency-smooth-fade3-600",
+  "split": "train",
+  "test": "Wilcoxon signed-rank, two-sided, zero_method=wilcox; paired t-test; bootstrap 95% CI of mean difference (10000 resamples, seed 0)"
+}

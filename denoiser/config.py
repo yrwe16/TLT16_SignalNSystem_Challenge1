@@ -105,6 +105,26 @@ class Config:
     tonal_fmin: float = 100.0
     tonal_fmax: float = 7800.0
 
+    # Phase reconstruction in voiced speech (roadmap stage 5; Krawczyk & Gerkmann, IEEE/ACM
+    # TASLP 22(12):1931-1940, 2014). "combi" = along time and frequency (Sec. IV-B),
+    # "frequency" = across frequency only (eq. 13). Harmonics up to 4 kHz as in the paper.
+    # f0 by YIN on the enhanced signal (the paper's PEFAC uses a trained voicing model);
+    # YIN threshold 0.1 and the -30 dB energy gate are our choices (not from the paper).
+    phase_reconstruction: bool = False
+    phase_mode: str = "combi"
+    phase_max_hz: float = 4000.0
+    phase_f0_min: float = 60.0
+    phase_f0_max: float = 400.0
+    phase_yin_threshold: float = 0.1
+    phase_energy_db: float = -30.0
+    # Offline variants: smooth the f0 track non-causally (fill gaps <= fill_gap frames, drop
+    # voiced runs shorter than min_run frames, 5-frame median), and crossfade the phase
+    # change over fade_frames at voicing boundaries.
+    phase_smooth: bool = False
+    phase_fill_gap_frames: int = 2
+    phase_min_run_frames: int = 5
+    phase_fade_frames: int = 0
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -159,6 +179,13 @@ class Config:
             raise ValueError("Invalid tonal module parameters.")
         if self.tonal_level not in ("observed", "track_median"):
             raise ValueError("tonal_level must be 'observed' or 'track_median'.")
+        if self.phase_mode not in ("combi", "frequency"):
+            raise ValueError("phase_mode must be 'combi' or 'frequency'.")
+        if not 0 < self.phase_f0_min < self.phase_f0_max or self.phase_max_hz <= 0:
+            raise ValueError("Invalid phase f0 range or phase_max_hz.")
+        if (self.phase_yin_threshold <= 0 or self.phase_fade_frames < 0
+                or self.phase_fill_gap_frames < 0 or self.phase_min_run_frames < 1):
+            raise ValueError("Invalid phase reconstruction parameters.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
