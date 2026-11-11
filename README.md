@@ -65,7 +65,10 @@ python tools/check_io.py          # input/ 과 output/ 비교
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd` (단계 4 채택안은 `dd_bidir`) | `prior_snr`, `ceps_*`, `ml2d_*` |
 | 유성음 위상 복원 | 끔 (단계 5 채택안은 주파수 방향, 600 Hz, 평활·크로스페이드) | `phase_reconstruction`, `phase_*` |
-| 협대역 음 모듈 | 끔 (단계 6 실험, 미채택) | `tonal_module`, `tonal_*` |
+| 협대역 음 모듈 | 끔 (단계 6a 실험, 미채택) | `tonal_module`, `tonal_*` |
+| 저역 차단 (바람) | 끔 (단계 6b 채택안은 325 Hz) | `wind_module`, `wind_cutoff_hz` |
+| RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
+| 과도음 잡음 PSD | 끔 (단계 6d 실험, 미채택) | `transient_module`, `transient_*` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
 `gain_rule="lsa"`로 바꾸면 1단계 실험(MMSE-LSA)의 출력을 냅니다. 이 스위치를 추가해도 `wiener` 출력은 이전과 바이트 단위로 같습니다.
@@ -118,7 +121,25 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | 4a | 1단계 + 켑스트럼-시간 평활 사전 SNR (논문 기본형) | 1.726 | | | 미채택 (Train −0.037) |
 | 4b | 1단계 + 양방향 DD 사전 SNR (오프라인 변형) | 1.771 | 1.739 | 13.83 | 채택, 청취 확인 대기 (Wilcoxon $p$ = 7×10⁻⁵) |
 | 5 | 4b + 유성음 위상 복원 (주파수 방향, 600 Hz 이하, 피치 평활·크로스페이드) | 1.774 | 1.743 | 13.78 | 채택 (효과 작음, 청취 확인 대기; Wilcoxon $p$ = 0.004) |
-| 6 | 4b + 협대역 음 추적 잡음 PSD (경보·사이렌 대상) | 1.763 | 1.726 | 12.95 | 미채택 (Validation −0.013) |
+| 6a | 4b + 협대역 음 추적 잡음 PSD (경보·사이렌 대상) | 1.763 | 1.726 | 12.95 | 미채택 (Validation −0.013) |
+| 6b | 5 + 저역 차단 (325 Hz 아래 이득을 하한으로, 바람·저역 잡음 대상) | 1.872 | 1.805 | 3.83 | 채택 (Wilcoxon $p$ = 6×10⁻¹¹), 청취 확인 대기, SNR 크게 하락 |
+| 6c | 6b + RPCA 저랭크 잡음 PSD (기계·엔진·조종석 대상) | 1.870 | 1.805 | 3.83 | 미채택 (Validation −0.000) |
+| 6d | 6b + HPSS 과도음 잡음 PSD (박수·클릭 대상) | 1.873 | 1.809 | 3.82 | 미채택 (유의하지 않음, 대상 파일 1–3개) |
+
+### 로드맵 결과 요약
+
+로드맵 단계 1–6을 모두 실험했습니다. 채택된 최종 설정은 다음과 같고, Validation 평균 PESQ-WB는 1회차 1.599에서 **1.805** (+0.206)입니다.
+
+```python
+Config(gain_rule="lsa", prior_snr="dd_bidir",                       # 단계 1, 4b
+       phase_reconstruction=True, phase_mode="frequency",           # 단계 5
+       phase_smooth=True, phase_fade_frames=3, phase_max_hz=600.0,
+       wind_module=True, wind_cutoff_hz=325.0)                      # 단계 6b
+```
+
+- `config.py` 기본값은 아직 1회차 제출본(Wiener)입니다. 다음 회차 제출 때 위 값으로 바꿉니다.
+- 단계 4b, 5, 6b는 청취 확인 전입니다. 특히 6b는 325 Hz 아래(남성 목소리의 기본 주파수 대역)를 줄이므로 목소리가 얇게 들릴 수 있고, SNR이 3.8 dB로 처리 전(9.6 dB)보다 낮아집니다. 순위 지표인 PESQ-WB는 모든 주요 잡음 종류에서 올랐습니다.
+- SNR을 함께 지켜야 한다면 6b 없이(PESQ 1.743, SNR 13.8 dB) 또는 낮은 차단 주파수(150 Hz: Train PESQ 1.789, SNR 8.7 dB)를 쓸 수 있습니다.
 
 단계 2는 1단계 설정 위에 잡음 PSD를 프레임마다 추적하는 unbiased MMSE-SPP(Gerkmann & Hendriks, 2012)를 더한 실험입니다 (`noise_tracker="spp"`, 기본값은 `"fixed"`).
 논문 그대로의 인과 추적(VOICEBOX 기본값)은 Train에서 1단계보다 0.064 낮았고, 비인과(양방향) 변형만 Train에서 +0.016 올랐습니다.
@@ -137,9 +158,14 @@ Validation에서는 유의하지 않았고 정상 잡음(조종석·광대역)�
 주파수 방향만 복원하고, 피치 궤적 평활과 유성음 경계 크로스페이드(오프라인 변형)를 더하고, 복원 대역을 600 Hz 이하로 줄였을 때만 Train +0.003, Validation +0.004 ($p$ = 0.004)로 좋아졌습니다.
 채택 조건은 모두 통과했지만 개선 폭이 매우 작아, 청취 확인 결과에 따라 다음 회차 제출 설정에 넣을지 정합니다.
 
-단계 6은 개선 폭이 가장 작은 잡음 종류인 경보·사이렌(`alarm_siren`, Validation에서 처리 전 대비 +0.27로 파일 10개 이상 종류 중 최저)을 대상으로, 클립 전체에서 오래 이어지는 협대역 피크 궤적을 찾아 잡음 PSD에 더하는 모듈입니다 (`tonal_module`, 기본값 `False`).
+단계 6a는 개선 폭이 가장 작은 잡음 종류인 경보·사이렌(`alarm_siren`, Validation에서 처리 전 대비 +0.27로 파일 10개 이상 종류 중 최저)을 대상으로, 클립 전체에서 오래 이어지는 협대역 피크 궤적을 찾아 잡음 PSD에 더하는 모듈입니다 (`tonal_module`, 기본값 `False`).
 Train 후보 11개가 모두 4b보다 낮았고 (최고 −0.008), Validation에서도 −0.013 (SNR −0.9 dB)이라 채택하지 않았습니다.
 정상적인 경보음은 이미 고정 잡음 추정에 들어 있어 사이렌에서의 이득이 작았고 (+0.007, 유의하지 않음), 오래 이어지는 저주파 음성 하모닉이 잡음으로 잘못 잡혀 다른 잡음 종류에서 음성이 손상되었습니다.
+
+단계 6b–6d는 남은 잡음 종류별 모듈을 단계 5 설정 위에 하나씩 더한 실험입니다.
+- **6b 저역 차단 (`wind_module`):** 차단 주파수 아래 대역의 이득을 LSA 하한(−15 dB)으로 제한합니다. Train에서 80–400 Hz를 비교해 325 Hz가 가장 좋았고 (+0.098), Validation +0.062로 파일 10개 이상인 모든 잡음 종류가 올라 채택했습니다. 음성의 기본 주파수 대역도 줄어들어 SNR은 3.8 dB로 크게 떨어집니다.
+- **6c RPCA (`rpca_module`):** 크기 스펙트로그램의 저랭크 성분을 잡음 PSD로 쓰는 방식입니다. 논문의 기본 λ에서는 음성까지 저랭크 성분에 들어가 잡음을 약 3배 과대추정했고, λ를 줄인 후보도 모두 6b보다 낮아 채택하지 않았습니다.
+- **6d 과도음 (`transient_module`):** HPSS 타악기 성분을 잡음 PSD에 더합니다. 대상인 박수·클릭·문 소리는 크게 좋아졌지만 (Validation clap +0.22, click +0.15) 파일이 1–3개뿐이고 전체 효과가 유의하지 않아 채택하지 않았습니다.
 
 ```bash
 # 설정을 바꿔 평가 (결과를 실험 폴더에 저장)
@@ -181,6 +207,10 @@ input/  output/         테스트 입력 / 결과 폴더
 - C. Breithaupt, T. Gerkmann, and R. Martin, "A novel a priori SNR estimation approach based on selective cepstro-temporal smoothing," *Proc. IEEE ICASSP*, pp. 4897–4900, 2008, DOI 10.1109/ICASSP.2008.4518755. (단계 4, 저자 공개 PDF로 수식과 Table 1 상수 대조)
 - M. Krawczyk and T. Gerkmann, "STFT Phase Reconstruction in Voiced Speech for an Improved Single-Channel Speech Enhancement," *IEEE/ACM Transactions on Audio, Speech, and Language Processing*, vol. 22, no. 12, pp. 1931–1940, 2014, DOI 10.1109/TASLP.2014.2354236. (단계 5, 저자 공개 PDF로 수식 대조)
 - A. de Cheveigné and H. Kawahara, "YIN, a fundamental frequency estimator for speech and music," *Journal of the Acoustical Society of America*, vol. 111, no. 4, pp. 1917–1930, 2002. (단계 5의 피치 추정, 학습 없음)
+- E. J. Candès, X. Li, Y. Ma, and J. Wright, "Robust principal component analysis?," *Journal of the ACM*, vol. 58, no. 3, pp. 1–37, 2011, DOI 10.1145/1970392.1970395. (단계 6c, 미채택; dganguli/robust-pca (MIT)는 대조용으로 읽기만 함)
+- P.-S. Huang, S. D. Chen, P. Smaragdis, and M. Hasegawa-Johnson, "Singing-voice separation from monaural recordings using robust principal component analysis," *Proc. IEEE ICASSP*, pp. 57–60, 2012, DOI 10.1109/ICASSP.2012.6287816. (단계 6c, 크기 스펙트로그램에 RPCA 적용)
+- D. FitzGerald, "Harmonic/percussive separation using median filtering," *Proc. DAFx*, 2010. (단계 6d, 미채택; DOI 없음, 상수 미대조)
+- R. Talmon, I. Cohen, and S. Gannot, "Transient noise reduction using nonlocal diffusion filters," *IEEE Transactions on Audio, Speech, and Language Processing*, vol. 19, no. 6, pp. 1584–1599, 2011, DOI 10.1109/TASL.2010.2093651. (단계 6d 배경)
 - R. J. McAulay and T. F. Quatieri, "Speech analysis/synthesis based on a sinusoidal representation," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 34, no. 4, pp. 744–754, 1986, DOI 10.1109/TASSP.1986.1164910. (단계 6 피크 궤적 연결 방식, 미채택; 상수는 자체 설정)
 - 단계 3의 음성 부재 확률 상수와 OM-LSA decision-directed 방식: chenwj1989/python-speech-enhancement `pns/suppression_gain.py` (커밋 f38fde7, BSD-3, Copyright (c) 2019 wjchen)를 읽고 직접 구현.
 - 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).

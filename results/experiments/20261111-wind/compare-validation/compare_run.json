@@ -1,0 +1,6 @@
+{
+  "base": "results\\experiments\\20261111-phase\\validation-frequency-smooth-fade3-600",
+  "new": "results\\experiments\\20261111-wind\\validation-hp325",
+  "split": "validation",
+  "test": "Wilcoxon signed-rank, two-sided, zero_method=wilcox; paired t-test; bootstrap 95% CI of mean difference (10000 resamples, seed 0)"
+}

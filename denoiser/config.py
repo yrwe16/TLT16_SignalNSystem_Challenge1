@@ -125,6 +125,21 @@ class Config:
     phase_min_run_frames: int = 5
     phase_fade_frames: int = 0
 
+    # Further stage-6 noise-type modules (each its own switch, all off by default):
+    # RPCA low-rank noise PSD for machine / engine / cockpit noise.
+    rpca_module: bool = False
+    rpca_lambda_scale: float = 1.0       # lambda = scale / sqrt(max(n_bins, n_frames))
+    rpca_combine: str = "replace"        # "replace" or "max" with the background estimate
+    rpca_max_iter: int = 100
+    # Wind: extra attenuation below wind_cutoff_hz (high-pass by capping the gain at the
+    # LSA floor), as the skill's first step for wind noise.
+    wind_module: bool = False
+    wind_cutoff_hz: float = 150.0
+    # Transients (clap, click, door, footsteps): HPSS percussive power added to the noise PSD.
+    transient_module: bool = False
+    transient_margin: float = 2.0
+    transient_frame_share: float = 0.3
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -186,6 +201,10 @@ class Config:
         if (self.phase_yin_threshold <= 0 or self.phase_fade_frames < 0
                 or self.phase_fill_gap_frames < 0 or self.phase_min_run_frames < 1):
             raise ValueError("Invalid phase reconstruction parameters.")
+        if (self.rpca_combine not in ("replace", "max") or self.rpca_lambda_scale <= 0
+                or self.rpca_max_iter < 1 or self.wind_cutoff_hz <= 0
+                or self.transient_margin <= 0 or not 0 <= self.transient_frame_share <= 1):
+            raise ValueError("Invalid stage-6 module parameters.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

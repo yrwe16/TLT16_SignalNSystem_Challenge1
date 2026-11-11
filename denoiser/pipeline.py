@@ -8,7 +8,8 @@ import soundfile as sf
 from .config import CONFIG
 from .gains import (lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
                     wiener_decision_directed)
-from .noise_estimation import add_tonal_noise, lowest_energy_frames, tracked_noise
+from .noise_estimation import (add_tonal_noise, lowest_energy_frames, rpca_noise,
+                               tracked_noise, transient_noise)
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
 
@@ -26,6 +27,10 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         noise = lowest_energy_frames(z, times, len(x), sample_rate, n_fft, cfg.noise_fraction)
     if cfg.tonal_module:
         noise = add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg)
+    if cfg.rpca_module:
+        noise = rpca_noise(noise, z, cfg)
+    if cfg.transient_module:
+        noise = transient_noise(noise, z, cfg)
     if cfg.gain_rule == "lsa" and cfg.prior_snr != "dd":
         enhanced = lsa_with_prior(z, noise, sample_rate, hop / sample_rate, cfg)
     elif cfg.gain_rule == "lsa" and cfg.omlsa:
@@ -34,6 +39,12 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         enhanced = lsa_decision_directed(z, noise, cfg.lsa_smoothing, cfg.lsa_gain_floor)
     else:
         enhanced = wiener_decision_directed(z, noise, cfg.wiener_smoothing, cfg.wiener_gain_floor)
+    if cfg.wind_module:
+        low = np.arange(enhanced.shape[0]) * sample_rate / n_fft < cfg.wind_cutoff_hz
+        floor = cfg.lsa_gain_floor if cfg.gain_rule == "lsa" else cfg.wiener_gain_floor
+        cap = floor * np.abs(z[low])
+        current = np.abs(enhanced[low])
+        enhanced[low] *= np.minimum(1.0, cap / np.maximum(current, 1e-30))
     if cfg.phase_reconstruction:
         first_pass = istft(enhanced, len(x), sample_rate, n_fft, hop)
         centers = np.rint(times * sample_rate).astype(int)

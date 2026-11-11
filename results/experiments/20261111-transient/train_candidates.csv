@@ -1,0 +1,6 @@
+﻿candidate,transient_module,transient_margin,transient_frame_share,pesq_wb,snr_db,delta_pesq_vs_previous
+previous adopted stack,False,2.0,0.3,1.8722,4.102,0.0
+train-m2-s0.3,True,2.0,0.3,1.8468,3.997,-0.0254
+train-m2-s0.5,True,2.0,0.5,1.8588,4.048,-0.0134
+train-m4-s0.3,True,4.0,0.3,1.871,4.074,-0.0012
+train-m4-s0.5,True,4.0,0.5,1.8725,4.088,0.0003

@@ -164,3 +164,61 @@ def add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg):
     else:  # "observed": all power on the track bins counts as noise
         tonal = np.where(mask, power, 0.0)
     return base + cfg.tonal_weight * tonal
+
+
+def rpca(d, lam, max_iter, tol=1e-7, rho=1.5):
+    """Principal component pursuit (Candes, Li, Ma & Wright, J. ACM 58(3), 2011):
+    min ||L||_* + lam ||S||_1 s.t. D = L + S. Solved by the inexact augmented Lagrangian
+    method with a growing penalty mu (Lin, Chen & Ma, 2010; mu0 = 1.25/||D||_2, rho = 1.5),
+    which reaches the same solution as the paper's fixed-mu Algorithm 1 in far fewer
+    iterations. Re-implemented; dganguli/robust-pca (MIT) was read for comparison only."""
+    norm2 = np.linalg.norm(d, 2) + 1e-30
+    mu = 1.25 / norm2
+    mu_max = mu * 1e7
+    y = d / max(norm2, np.abs(d).max() / lam)
+    s = np.zeros_like(d)
+    norm = np.linalg.norm(d) + 1e-30
+    for _ in range(max_iter):
+        u, sig, vt = np.linalg.svd(d - s + y / mu, full_matrices=False)
+        low = (u * np.maximum(sig - 1 / mu, 0)) @ vt
+        r = d - low + y / mu
+        s = np.sign(r) * np.maximum(np.abs(r) - lam / mu, 0)
+        residual = d - low - s
+        y += mu * residual
+        mu = min(mu * rho, mu_max)
+        if np.linalg.norm(residual) <= tol * norm:
+            break
+    return low, s
+
+
+def rpca_noise(noise, z, cfg):
+    """Stage 6 module for machine / engine / cockpit noise: the low-rank part of the
+    magnitude spectrogram (Huang et al., ICASSP 2012 use RPCA on magnitudes) as a noise
+    PSD per frame, combined with the background estimate ("replace" or "max")."""
+    mag = np.abs(z)
+    scale = mag.max() + 1e-30
+    lam = cfg.rpca_lambda_scale / np.sqrt(max(mag.shape))
+    low, _ = rpca(mag / scale, lam, cfg.rpca_max_iter)
+    low_psd = (np.maximum(low, 0) * scale) ** 2
+    base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, mag.shape)
+    if cfg.rpca_combine == "max":
+        return np.maximum(base, low_psd)
+    return np.maximum(low_psd, 1e-18)
+
+
+def transient_noise(noise, z, cfg):
+    """Stage 6 module for clapping / clicks / door / footsteps: percussive part by
+    median-filtering HPSS (FitzGerald, DAFx 2010; 17-bin/17-frame medians and a margin as
+    in later HPSS work; constants not checked against the paper) added to the noise PSD,
+    only in frames where the percussive mask covers a large share of the band (broadband
+    transients, cf. Talmon, Cohen & Gannot, IEEE TASLP 19(6), 2011)."""
+    from scipy.ndimage import median_filter
+    mag = np.abs(z)
+    harmonic = median_filter(mag, size=(1, 17), mode="nearest")
+    percussive = median_filter(mag, size=(17, 1), mode="nearest")
+    mask = percussive > cfg.transient_margin * harmonic
+    frames = mask.mean(axis=0) >= cfg.transient_frame_share
+    mask &= frames[None, :]
+    transient_noise.share = float(frames.mean())
+    base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, mag.shape)
+    return base + np.where(mask, mag ** 2, 0.0)
