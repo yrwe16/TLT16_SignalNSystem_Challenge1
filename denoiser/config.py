@@ -87,6 +87,24 @@ class Config:
     ml2d_bins: int = 3
     ml2d_frames: int = 5
 
+    # Noise-type module (roadmap stage 6, weakest type alarm_siren; also bells, hum):
+    # long narrowband peak tracks are added to the noise PSD (tonal_weight x observed power
+    # on the track bins). Tracking after McAulay & Quatieri, IEEE TASSP 34(4), 1986; all
+    # constants are our own choices.
+    tonal_module: bool = False
+    tonal_peak_db: float = 10.0          # peak must exceed the local spectral median by this
+    tonal_median_bins: int = 15
+    tonal_max_jump_bins: int = 2         # matching interval per frame (8 ms)
+    tonal_max_gap_frames: int = 2
+    tonal_min_seconds: float = 0.4
+    tonal_halfwidth_bins: int = 2        # Hann main lobe half width at n_fft
+    tonal_weight: float = 1.0
+    # "observed" = all power on track bins is noise; "track_median" = the median peak power
+    # along the track (so speech overlapping the tone in some frames is not removed), variant.
+    tonal_level: str = "observed"
+    tonal_fmin: float = 100.0
+    tonal_fmax: float = 7800.0
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -135,6 +153,12 @@ class Config:
             raise ValueError("prior_snr other than 'dd' requires gain_rule='lsa', omlsa=False.")
         if self.ceps_kappa < 0 or self.ml2d_bins < 1 or self.ml2d_frames < 1:
             raise ValueError("ceps_kappa must be >= 0 and ml2d sizes >= 1.")
+        if (self.tonal_min_seconds <= 0 or self.tonal_weight < 0 or self.tonal_median_bins < 3
+                or self.tonal_max_jump_bins < 0 or self.tonal_max_gap_frames < 0
+                or self.tonal_halfwidth_bins < 0 or not 0 <= self.tonal_fmin < self.tonal_fmax):
+            raise ValueError("Invalid tonal module parameters.")
+        if self.tonal_level not in ("observed", "track_median"):
+            raise ValueError("tonal_level must be 'observed' or 'track_median'.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

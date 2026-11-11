@@ -91,3 +91,76 @@ def tracked_noise(z, times, length, sample_rate, n_fft, hop, cfg):
         return forward
     backward = spp_track(power[:, ::-1], initial(True), hop_seconds, cfg)[:, ::-1]
     return 0.5 * (forward + backward)
+
+
+def tonal_tracks(power, sample_rate, n_fft, hop_seconds, cfg):
+    """Long-lasting narrowband peak tracks (sirens, alarms, bells, hum); boolean (bins, frames).
+
+    Peak picking and frame-to-frame matching follow the idea of McAulay & Quatieri's
+    sinusoidal tracking (IEEE TASSP 34(4):744-754, 1986): a peak continues the track whose
+    last frequency is nearest within a matching interval, otherwise it starts a new track.
+    Here a peak is a local maximum at least tonal_peak_db above the median of the spectrum
+    over tonal_median_bins bins; a track may skip up to tonal_max_gap_frames frames; only
+    tracks lasting at least tonal_min_seconds are kept, since the whole clip is available
+    (offline) and speech harmonics rarely stay on one partial that long. All constants are
+    our own choices (the paper's values were not checked).
+    """
+    from scipy.ndimage import median_filter
+    bins, frames = power.shape
+    freqs = np.arange(bins) * sample_rate / n_fft
+    band = (freqs >= cfg.tonal_fmin) & (freqs <= cfg.tonal_fmax)
+    local = median_filter(power, size=(cfg.tonal_median_bins, 1), mode="nearest")
+    ratio = 10 ** (cfg.tonal_peak_db / 10)
+    is_peak = np.zeros_like(power, dtype=bool)
+    is_peak[1:-1] = (power[1:-1] > power[:-2]) & (power[1:-1] >= power[2:])
+    is_peak &= (power > ratio * local) & band[:, None]
+
+    active = []    # [last_bin, last_frame, [(frame, bin), ...]]
+    finished = []
+    for t in range(frames):
+        peaks = list(np.flatnonzero(is_peak[:, t]))
+        still = []
+        for track in sorted(active, key=lambda tr: -len(tr[2])):  # longer tracks choose first
+            if t - track[1] > cfg.tonal_max_gap_frames + 1:
+                finished.append(track)
+                continue
+            if peaks:
+                distances = np.abs(np.array(peaks) - track[0])
+                j = int(np.argmin(distances))
+                if distances[j] <= cfg.tonal_max_jump_bins:
+                    k = peaks.pop(j)
+                    track[0], track[1] = k, t
+                    track[2].append((t, k))
+            still.append(track)
+        active = still + [[k, t, [(t, k)]] for k in peaks]
+    finished.extend(active)
+
+    mask = np.zeros_like(power, dtype=bool)
+    level = np.zeros_like(power)  # median track power at its peak bins (track_median mode)
+    min_frames = cfg.tonal_min_seconds / hop_seconds
+    w = cfg.tonal_halfwidth_bins
+    for _, _, points in finished:
+        if points[-1][0] - points[0][0] + 1 < min_frames:
+            continue
+        median_peak = np.median([power[k, t] for t, k in points])
+        for t, k in points:
+            span = slice(max(k - w, 0), k + w + 1)
+            mask[span, t] = True
+            # spread the peak level over the main lobe with the shape seen in this frame
+            shape = power[span, t] / max(power[k, t], 1e-30)
+            level[span, t] = np.maximum(level[span, t], median_peak * np.minimum(shape, 1.0))
+    tonal_tracks.level = level
+    return mask
+
+
+def add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg):
+    """Noise PSD per frame: the background estimate plus the observed power on tonal tracks."""
+    power = np.abs(z) ** 2
+    base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, power.shape)
+    mask = tonal_tracks(power, sample_rate, n_fft, hop / sample_rate, cfg)
+    add_tonal_noise.share = float(mask.mean())
+    if cfg.tonal_level == "track_median":
+        tonal = np.minimum(tonal_tracks.level, power)
+    else:  # "observed": all power on the track bins counts as noise
+        tonal = np.where(mask, power, 0.0)
+    return base + cfg.tonal_weight * tonal

@@ -1,0 +1,13 @@
+﻿candidate,tonal_level,tonal_peak_db,tonal_min_seconds,pesq_wb,snr_db,delta_pesq_vs_stage4
+stage4 lsa + dd_bidir (tonal_module=False),,,,1.7709,13.521,0.0
+train-basic-p10-l0.4,observed,10.0,0.4,1.6992,10.36,-0.0717
+train-median-p10-l0.4,track_median,10.0,0.4,1.7111,10.804,-0.0598
+train-median-p10-l0.6,track_median,10.0,0.6,1.7386,12.104,-0.0323
+train-median-p10-l1.0,track_median,10.0,1.0,1.7632,13.18,-0.0077
+train-p10-l0.25,observed,10.0,0.25,1.6529,8.474,-0.118
+train-p10-l0.6,observed,10.0,0.6,1.7312,11.785,-0.0397
+train-p10-l1.0,observed,10.0,1.0,1.7613,13.07,-0.0096
+train-p6-l0.25,observed,6.0,0.25,1.5334,5.681,-0.2375
+train-p6-l0.4,observed,6.0,0.4,1.6084,7.674,-0.1625
+train-p6-l0.6,observed,6.0,0.6,1.6707,9.679,-0.1002
+train-p6-l1.0,observed,6.0,1.0,1.7319,11.906,-0.039
