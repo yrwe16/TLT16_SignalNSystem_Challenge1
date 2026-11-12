@@ -5,11 +5,11 @@
 | 팀명 | 저희가왜마지막이조(TLT, TheLastTeam(16조)) |
 | 제출 회차 | 1회차 |
 | 평가 버전 | Git 태그 `round-01` (커밋 해시는 런어스 제출 글에 함께 기재) |
-| 알고리즘 | Wiener Filter (decision-directed 사전 SNR 추정), 딥러닝·머신러닝 미사용 |
+| 알고리즘 | MMSE-LSA (양방향 decision-directed 사전 SNR) + 유성음 저역 위상 복원 + 325 Hz 저역 차단, 딥러닝·머신러닝 미사용 |
 
 ## 실행 방법
 
-Python 3.10 이상에서 동작합니다 (Python 3.10, 3.12, 3.13, 3.14에서 확인).
+Python 3.10 이상에서 동작합니다 (1회차 제출본은 Python 3.14 새 가상환경에서 설치·실행을 확인했습니다).
 
 ```bash
 # 1. 패키지 설치
@@ -41,52 +41,52 @@ python tools/check_io.py          # input/ 과 output/ 비교
 
 ## 알고리즘
 
-강의에서 제공한 베이스라인 노트북(`noise_reduction_baselines.ipynb`)의 Wiener Filter를 제출 형식에 맞게 옮긴 것입니다.
-16 kHz 입력에서 노트북의 `wiener_filter` 함수와 출력이 샘플 단위로 동일함을 확인했습니다.
+강의 베이스라인 노트북(`noise_reduction_baselines.ipynb`)의 Wiener Filter에서 시작해, 비학습 문헌 로드맵을 단계별로 실험하고 Train에서 PESQ-WB로 고른 뒤 Validation으로 확인해 채택한 구성입니다 (아래 "실험 기록").
+모든 처리는 Noisy 입력만 사용하며, 학습된 모델이나 데이터로 학습하는 파라미터는 없습니다.
 
 1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
-2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 주파수 방향으로 3-bin 평활화합니다. 파일마다 하나의 값을 사용하며 Noisy 입력만 사용합니다.
-3. **이득 계산:** 사후 SNR $\gamma_t = |Y_t|^2 / N$, 사전 SNR $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$ (decision-directed).
-   이득 규칙은 `gain_rule`로 고르며, 이득을 곱한 뒤 입력 위상으로 복원합니다.
-   - `wiener` (현재 기본값, 1회차 제출본): $G_t = \mathrm{clip}\big(\xi_t/(1+\xi_t),\ g_{\min},\ 1\big)$
-   - `lsa` (다음 회차 후보): MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985). 논문처럼 상한은 두지 않습니다.
-4. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
+2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 주파수 방향으로 3-bin 평활화합니다 (파일마다 하나의 값).
+3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리).
+4. **이득 (단계 1):** MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985).
+5. **저역 차단 (단계 6):** 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한합니다 (바람·기계 등 저역 잡음).
+6. **유성음 위상 복원 (단계 5):** 1차 출력에서 YIN으로 기본 주파수를 추정하고(비인과 평활), 유성음 프레임의 600 Hz 이하 위상을 고조파 모델과 분석 창의 위상으로 주파수 방향으로 복원합니다 (Krawczyk & Gerkmann, 2014). 유성음 경계에서는 3프레임에 걸쳐 크로스페이드합니다.
+7. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
 
 | 파라미터 | 값 | 위치 |
 | --- | --- | --- |
 | 창 길이 / 겹침 | 32 ms / 75 % | `denoiser/config.py` |
 | 잡음 추정 프레임 비율 | 0.20 | `noise_fraction` |
-| 이득 규칙 | `wiener` (다음 회차 후보는 `lsa`) | `gain_rule` |
+| 이득 규칙 | `lsa` (베이스라인은 `wiener`) | `gain_rule` |
 | LSA decision-directed 계수 $a$ | 0.95 | `lsa_smoothing` |
 | LSA 최소 이득 $g_{\min}$ | 0.178 (−15 dB) | `lsa_gain_floor` |
 | Wiener decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
 | Wiener 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
 | 잡음 추정 방식 | `fixed` (단계 2 실험은 `spp`, 미채택) | `noise_tracker`, `spp_*` |
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
-| 사전 SNR 추정 | `dd` (단계 4 채택안은 `dd_bidir`) | `prior_snr`, `ceps_*`, `ml2d_*` |
-| 유성음 위상 복원 | 끔 (단계 5 채택안은 주파수 방향, 600 Hz, 평활·크로스페이드) | `phase_reconstruction`, `phase_*` |
+| 사전 SNR 추정 | `dd_bidir` (정·역방향 DD 평균) | `prior_snr`, `ceps_*`, `ml2d_*` |
+| 유성음 위상 복원 | 켬: 주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임 | `phase_reconstruction`, `phase_*` |
 | 협대역 음 모듈 | 끔 (단계 6a 실험, 미채택) | `tonal_module`, `tonal_*` |
-| 저역 차단 (바람) | 끔 (단계 6b 채택안은 325 Hz) | `wind_module`, `wind_cutoff_hz` |
+| 저역 차단 (바람) | 켬, 325 Hz | `wind_module`, `wind_cutoff_hz` |
 | RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
 | 과도음 잡음 PSD | 끔 (단계 6d 실험, 미채택) | `transient_module`, `transient_*` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
-`gain_rule="lsa"`로 바꾸면 1단계 실험(MMSE-LSA)의 출력을 냅니다. 이 스위치를 추가해도 `wiener` 출력은 이전과 바이트 단위로 같습니다.
+`gain_rule="wiener"`, `prior_snr="dd"`, `phase_reconstruction=False`, `wind_module=False`로 바꾸면 베이스라인 Wiener(단계 0)와 바이트 단위로 같은 출력을 냅니다.
 
 모든 파라미터는 코드(`denoiser/config.py`)에 포함되어 있으며 별도 설정 파일이 필요 없습니다.
 
 ## Validation 평가 결과
 
-1회차(`round-01`) 제출 버전(Wiener)으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
-MMSE-LSA(`gain_rule="lsa"`)는 아직 제출하지 않은 실험 결과이며, 아래 "실험 기록"에 따로 정리했습니다.
+1회차(`round-01`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
 
 | 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
 | --- | ---: | ---: | ---: |
 | Noisy (처리 전) | 164 | 9.63 | 1.395 |
-| 제출 알고리즘 (Wiener) | 164 | 13.12 | 1.599 |
-| 개선량 | | +3.49 | +0.204 |
+| 제출 알고리즘 (1회차) | 164 | 3.83 | 1.805 |
+| 개선량 | | −5.81 | +0.411 |
 
-PESQ 계산 실패 파일은 0개입니다. 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
+PESQ 계산 실패 파일은 0개입니다.
+SNR이 처리 전보다 낮은 것은 325 Hz 저역 차단이 음성의 기본 주파수 대역도 함께 줄이기 때문입니다. 순위 지표인 PESQ-WB를 기준으로 채택했으며, 저역 차단을 끄면 PESQ-WB 1.743, SNR 13.78 dB입니다 (베이스라인 Wiener는 PESQ-WB 1.599, SNR 13.12 dB). 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
 
 평가 방법은 베이스라인 노트북과 같습니다.
 
@@ -114,8 +114,8 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 
 | 단계 | 변경 | Train PESQ-WB | Validation PESQ-WB | Validation SNR (dB) | 결정 |
 | --- | --- | ---: | ---: | ---: | --- |
-| 0 | Wiener (1회차 제출본) | 1.604 | 1.599 | 13.12 | 기준 |
-| 1 | + 이득 함수 MMSE-LSA (−15 dB, $a$ = 0.95) | 1.763 | 1.730 | 13.57 | 채택, 다음 회차 제출 예정 (Wilcoxon $p$ = 7×10⁻¹³) |
+| 0 | Wiener (베이스라인, 제출하지 않음) | 1.604 | 1.599 | 13.12 | 기준 |
+| 1 | + 이득 함수 MMSE-LSA (−15 dB, $a$ = 0.95) | 1.763 | 1.730 | 13.57 | 채택 (Wilcoxon $p$ = 7×10⁻¹³) |
 | 2 | + 잡음 추적 MMSE-SPP (양방향, ξ_H1 = 10 dB) | 1.779 | 1.741 | 13.15 | 미채택 (Validation $p$ = 0.56, aircraft_cockpit −0.11) |
 | 3 | 1단계 + OM-LSA (Cohen SPP, $G_{\min}$ −15 dB) | 1.729 | 1.690 | 13.13 | 미채택 (Validation −0.040) |
 | 4a | 1단계 + 켑스트럼-시간 평활 사전 SNR (논문 기본형) | 1.726 | | | 미채택 (Train −0.037) |
@@ -128,7 +128,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 
 ### 로드맵 결과 요약
 
-로드맵 단계 1–6을 모두 실험했습니다. 채택된 최종 설정은 다음과 같고, Validation 평균 PESQ-WB는 1회차 1.599에서 **1.805** (+0.206)입니다.
+로드맵 단계 1–6을 모두 실험했습니다. 채택된 최종 설정은 다음과 같고, Validation 평균 PESQ-WB는 베이스라인 Wiener 1.599에서 **1.805** (+0.206)입니다.
 
 ```python
 Config(gain_rule="lsa", prior_snr="dd_bidir",                       # 단계 1, 4b
@@ -137,7 +137,7 @@ Config(gain_rule="lsa", prior_snr="dd_bidir",                       # 단계 1, 
        wind_module=True, wind_cutoff_hz=325.0)                      # 단계 6b
 ```
 
-- `config.py` 기본값은 아직 1회차 제출본(Wiener)입니다. 다음 회차 제출 때 위 값으로 바꿉니다.
+- 이 설정이 `config.py`의 기본값이며 1회차(`round-01`)로 제출합니다.
 - 단계 4b, 5, 6b는 청취 확인 전입니다. 특히 6b는 325 Hz 아래(남성 목소리의 기본 주파수 대역)를 줄이므로 목소리가 얇게 들릴 수 있고, SNR이 3.8 dB로 처리 전(9.6 dB)보다 낮아집니다. 순위 지표인 PESQ-WB는 모든 주요 잡음 종류에서 올랐습니다.
 - SNR을 함께 지켜야 한다면 6b 없이(PESQ 1.743, SNR 13.8 dB) 또는 낮은 차단 주파수(150 Hz: Train PESQ 1.789, SNR 8.7 dB)를 쓸 수 있습니다.
 
@@ -151,12 +151,12 @@ Validation에서는 유의하지 않았고 정상 잡음(조종석·광대역)�
 단계 4는 1단계 설정에서 사전 SNR 추정만 바꾼 실험입니다 (`prior_snr`, 기본값 `"dd"`).
 논문(Breithaupt 외, 2008)의 켑스트럼-시간 평활(`"cepstral"`)은 Table 1 상수 그대로와 변형 7개 모두 Train에서 1단계보다 낮았습니다 (최고 −0.008).
 오프라인 변형 중 정방향·역방향 decision-directed 추정을 평균하는 `"dd_bidir"`만 Train +0.008, Validation +0.009 ($p$ = 7×10⁻⁵, 파일 67 % 개선)로 두 데이터에서 같은 방향으로 좋아져 채택했습니다.
-문헌 근거가 없는 비인과 처리이며, 개선 폭이 작아 청취 확인 후 다음 회차 제출 설정(`gain_rule="lsa"`, `prior_snr="dd_bidir"`)에 넣습니다.
+문헌 근거가 없는 비인과 처리이며, 1회차 제출 설정에 포함했습니다.
 
 단계 5는 4b 위에서 유성음 프레임의 위상을 기본 주파수로 복원하는 실험입니다 (Krawczyk & Gerkmann, 2014; `phase_reconstruction`, 기본값 `False`).
 논문 방식(시간·주파수 결합, 4 kHz까지)은 실제 피치 궤적에서 시간 방향 전파가 어긋나 Train −0.016이었습니다.
 주파수 방향만 복원하고, 피치 궤적 평활과 유성음 경계 크로스페이드(오프라인 변형)를 더하고, 복원 대역을 600 Hz 이하로 줄였을 때만 Train +0.003, Validation +0.004 ($p$ = 0.004)로 좋아졌습니다.
-채택 조건은 모두 통과했지만 개선 폭이 매우 작아, 청취 확인 결과에 따라 다음 회차 제출 설정에 넣을지 정합니다.
+채택 조건은 모두 통과했지만 개선 폭이 매우 작습니다. 1회차 제출 설정에 포함했습니다.
 
 단계 6a는 개선 폭이 가장 작은 잡음 종류인 경보·사이렌(`alarm_siren`, Validation에서 처리 전 대비 +0.27로 파일 10개 이상 종류 중 최저)을 대상으로, 클립 전체에서 오래 이어지는 협대역 피크 궤적을 찾아 잡음 PSD에 더하는 모듈입니다 (`tonal_module`, 기본값 `False`).
 Train 후보 11개가 모두 4b보다 낮았고 (최고 −0.008), Validation에서도 −0.013 (SNR −0.9 dB)이라 채택하지 않았습니다.

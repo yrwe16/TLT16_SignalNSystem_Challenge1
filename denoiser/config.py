@@ -13,13 +13,13 @@ class Config:
     # Noise PSD: mean power of the lowest-energy complete frames, smoothed over 3 bins.
     noise_fraction: float = 0.20
 
-    # Gain rule (roadmap stage 1): "wiener" = round-01 submission, "lsa" = MMSE log-spectral
+    # Defaults = round-01 submission: the stack adopted over roadmap stages 1-6
+    # (results/experiments.csv). Setting gain_rule="wiener", prior_snr="dd",
+    # phase_reconstruction=False and wind_module=False gives the stage-0 baseline Wiener.
+    # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
-    # Both use the decision-directed a priori SNR; each rule keeps its own parameters so
-    # gain_rule="wiener" reproduces the round-01 submission byte for byte.
-    # round-01 submission uses "wiener"; "lsa" was adopted on 2026-11-10 for a later round
-    # (results/experiments.csv).
-    gain_rule: str = "wiener"
+    # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
+    gain_rule: str = "lsa"
 
     # Wiener filter with decision-directed a priori SNR (Ephraim & Malah, 1984).
     wiener_smoothing: float = 0.98
@@ -73,7 +73,7 @@ class Config:
     # (Breithaupt, Gerkmann & Martin, ICASSP 2008, pp. 4897-4900, constants from Table 1,
     # read in the original); offline variants: "dd_bidir" = mean of forward and backward DD,
     # "ml_2d" = centred 2-D moving average of the ML SNR.
-    prior_snr: str = "dd"
+    prior_snr: str = "dd_bidir"  # stage 4 (adopted variant)
     # Table 1 is for a 16 ms frame shift (M = 512, shift M/2 at 16 kHz); False converts the
     # per-frame constants (alpha_const, alpha_pitch, beta) to our hop with equal time constants.
     ceps_per_frame_constants: bool = False
@@ -110,9 +110,9 @@ class Config:
     # "frequency" = across frequency only (eq. 13). Harmonics up to 4 kHz as in the paper.
     # f0 by YIN on the enhanced signal (the paper's PEFAC uses a trained voicing model);
     # YIN threshold 0.1 and the -30 dB energy gate are our choices (not from the paper).
-    phase_reconstruction: bool = False
-    phase_mode: str = "combi"
-    phase_max_hz: float = 4000.0
+    phase_reconstruction: bool = True  # stage 5 (adopted variant below)
+    phase_mode: str = "frequency"
+    phase_max_hz: float = 600.0
     phase_f0_min: float = 60.0
     phase_f0_max: float = 400.0
     phase_yin_threshold: float = 0.1
@@ -120,10 +120,10 @@ class Config:
     # Offline variants: smooth the f0 track non-causally (fill gaps <= fill_gap frames, drop
     # voiced runs shorter than min_run frames, 5-frame median), and crossfade the phase
     # change over fade_frames at voicing boundaries.
-    phase_smooth: bool = False
+    phase_smooth: bool = True
     phase_fill_gap_frames: int = 2
     phase_min_run_frames: int = 5
-    phase_fade_frames: int = 0
+    phase_fade_frames: int = 3
 
     # Further stage-6 noise-type modules (each its own switch, all off by default):
     # RPCA low-rank noise PSD for machine / engine / cockpit noise.
@@ -133,8 +133,8 @@ class Config:
     rpca_max_iter: int = 100
     # Wind: extra attenuation below wind_cutoff_hz (high-pass by capping the gain at the
     # LSA floor), as the skill's first step for wind noise.
-    wind_module: bool = False
-    wind_cutoff_hz: float = 150.0
+    wind_module: bool = True  # stage 6b
+    wind_cutoff_hz: float = 325.0
     # Transients (clap, click, door, footsteps): HPSS percussive power added to the noise PSD.
     transient_module: bool = False
     transient_margin: float = 2.0
