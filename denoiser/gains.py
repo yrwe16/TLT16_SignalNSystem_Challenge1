@@ -256,8 +256,12 @@ def _dd_prior_snr(posterior_snr, noise_tf, z, smoothing, gain_floor):
     return xi
 
 
-def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg):
-    """MMSE-LSA gain (stage 1 floor) with an alternative a priori SNR estimator."""
+def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg, gain_floor=None):
+    """MMSE-LSA gain (stage 1 floor) with an alternative a priori SNR estimator.
+
+    gain_floor: scalar or one value per frequency bin (round-02 band_floor); default
+    cfg.lsa_gain_floor."""
+    floor = cfg.lsa_gain_floor if gain_floor is None else gain_floor
     power = np.abs(z) ** 2
     noise_tf = _per_frame(noise, z.shape)
     gamma = power / noise_tf
@@ -266,9 +270,50 @@ def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg):
     elif cfg.prior_snr == "ml_2d":
         xi = ml_2d_prior_snr(gamma, cfg)
     else:  # "dd_bidir": mean of forward and time-reversed DD estimates
-        fwd = _dd_prior_snr(gamma, noise_tf, z, cfg.lsa_smoothing, cfg.lsa_gain_floor)
+        fwd = _dd_prior_snr(gamma, noise_tf, z, cfg.lsa_smoothing, floor)
         bwd = _dd_prior_snr(gamma[:, ::-1], noise_tf[:, ::-1], z[:, ::-1],
-                            cfg.lsa_smoothing, cfg.lsa_gain_floor)[:, ::-1]
+                            cfg.lsa_smoothing, floor)[:, ::-1]
         xi = 0.5 * (fwd + bwd)
-    gain = np.maximum(lsa_gain(xi, gamma), cfg.lsa_gain_floor)
+    floor_tf = np.asarray(floor)[:, None] if np.ndim(floor) else floor
+    gain = np.maximum(lsa_gain(xi, gamma), floor_tf)
     return gain * z
+
+
+def band_floor_profile(n_bins, sample_rate, n_fft, cfg):
+    """Round-02 step 1 (band_floor): per-bin LSA gain floor and low-band cap.
+
+    Bands [0, f_c), [f_c, 1000), [1000, 4000), [4000, fs/2] Hz. Below f_c the output is
+    capped at band_low_depth_db relative to the noisy input (the round-01 wind_module rule,
+    which used the LSA floor, -15 dB, at f_c = 325 Hz); the LSA floor there stays
+    lsa_gain_floor. The other bands get their own LSA floor. With band_smooth_bins = n > 0
+    the floors (in dB) are interpolated linearly over n bins after each boundary and the cap
+    is relaxed linearly in dB to 0 dB over n bins above f_c. All values: our choice
+    (multiband idea after Kamath & Loizou, ICASSP 2002; original not checked).
+    Returns (floor per bin, cap per bin with inf meaning no cap).
+    """
+    freqs = np.arange(n_bins) * sample_rate / n_fft
+    edges = [cfg.band_cutoff_hz, 1000.0, 4000.0]
+    floor_db = np.select(
+        [freqs < edges[0], freqs < edges[1], freqs < edges[2]],
+        [20 * np.log10(cfg.lsa_gain_floor), cfg.band_mid_floor_db, cfg.band_midhigh_floor_db],
+        cfg.band_high_floor_db)
+    cap_db = np.where(freqs < edges[0], cfg.band_low_depth_db, np.inf)
+    n = cfg.band_smooth_bins
+    if n > 0:
+        for edge in edges:
+            k0 = int(np.searchsorted(freqs, edge))  # first bin of the upper band
+            if not 0 < k0 < n_bins:
+                continue
+            before, after = floor_db[k0 - 1], floor_db[min(k0 + n, n_bins - 1)]
+            for j in range(n):
+                if k0 + j < n_bins:
+                    floor_db[k0 + j] = before + (after - before) * (j + 1) / (n + 1)
+        k0 = int(np.searchsorted(freqs, edges[0]))
+        for j in range(n):
+            if k0 + j < n_bins:
+                cap_db[k0 + j] = cfg.band_low_depth_db * (1 - (j + 1) / (n + 1))
+    floor = 10 ** (floor_db / 20)
+    if not n and np.all(floor_db == 20 * np.log10(cfg.lsa_gain_floor)):
+        floor = np.full(n_bins, cfg.lsa_gain_floor)  # exactly the scalar floor's value
+    cap = np.where(np.isfinite(cap_db), 10 ** (cap_db / 20), np.inf)
+    return floor, cap

@@ -6,7 +6,7 @@ import numpy as np
 import soundfile as sf
 
 from .config import CONFIG
-from .gains import (lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
+from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
                     wiener_decision_directed)
 from .noise_estimation import (add_tonal_noise, lowest_energy_frames, rpca_noise,
                                tracked_noise, transient_noise)
@@ -31,8 +31,10 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         noise = rpca_noise(noise, z, cfg)
     if cfg.transient_module:
         noise = transient_noise(noise, z, cfg)
+    band = band_floor_profile(z.shape[0], sample_rate, n_fft, cfg) if cfg.band_floor else None
     if cfg.gain_rule == "lsa" and cfg.prior_snr != "dd":
-        enhanced = lsa_with_prior(z, noise, sample_rate, hop / sample_rate, cfg)
+        enhanced = lsa_with_prior(z, noise, sample_rate, hop / sample_rate, cfg,
+                                  gain_floor=None if band is None else band[0])
     elif cfg.gain_rule == "lsa" and cfg.omlsa:
         enhanced = omlsa_decision_directed(z, noise, sample_rate, n_fft, cfg)
     elif cfg.gain_rule == "lsa":
@@ -45,6 +47,11 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         cap = floor * np.abs(z[low])
         current = np.abs(enhanced[low])
         enhanced[low] *= np.minimum(1.0, cap / np.maximum(current, 1e-30))
+    if band is not None:
+        cap = band[1][:, None] * np.abs(z)
+        current = np.abs(enhanced)
+        limit = np.isfinite(band[1])
+        enhanced[limit] *= np.minimum(1.0, cap[limit] / np.maximum(current[limit], 1e-30))
     if cfg.phase_reconstruction:
         first_pass = istft(enhanced, len(x), sample_rate, n_fft, hop)
         centers = np.rint(times * sample_rate).astype(int)

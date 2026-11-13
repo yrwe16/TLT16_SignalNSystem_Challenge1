@@ -146,6 +146,19 @@ class Config:
     transient_margin: float = 2.0
     transient_frame_share: float = 0.3
 
+    # Round-02 step 1, band-dependent gain floor (generalizes wind_module): bands
+    # [0, band_cutoff_hz), [cutoff, 1 kHz), [1, 4 kHz), [4 kHz, fs/2]. Below the cutoff the
+    # output is capped at band_low_depth_db relative to the noisy input; the other bands get
+    # their own LSA floor. These defaults reproduce wind_module=True (325 Hz, -15 dB) exactly.
+    # Values are our choice. Requires gain_rule="lsa" and prior_snr="dd_bidir".
+    band_floor: bool = False
+    band_cutoff_hz: float = 325.0
+    band_low_depth_db: float = -15.0
+    band_mid_floor_db: float = -15.0       # [cutoff, 1000) Hz
+    band_midhigh_floor_db: float = -15.0   # [1000, 4000) Hz
+    band_high_floor_db: float = -15.0      # [4000, fs/2] Hz
+    band_smooth_bins: int = 0              # 0, 1 or 2 bins of linear transition
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -211,6 +224,12 @@ class Config:
                 or self.rpca_max_iter < 1 or self.wind_cutoff_hz <= 0
                 or self.transient_margin <= 0 or not 0 <= self.transient_frame_share <= 1):
             raise ValueError("Invalid stage-6 module parameters.")
+        if self.band_floor and (self.gain_rule != "lsa" or self.prior_snr != "dd_bidir"
+                                or self.wind_module):
+            raise ValueError("band_floor needs gain_rule='lsa', prior_snr='dd_bidir' and "
+                             "wind_module=False.")
+        if self.band_cutoff_hz <= 0 or self.band_smooth_bins not in (0, 1, 2):
+            raise ValueError("Invalid band_floor parameters.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
