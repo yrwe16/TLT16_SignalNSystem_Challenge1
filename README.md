@@ -58,7 +58,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 모든 처리는 Noisy 입력만 사용하며, 학습된 모델이나 데이터로 학습하는 파라미터는 없습니다.
 
 1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
-2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 주파수 방향으로 3-bin 평활화합니다 (파일마다 하나의 값).
+2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 시작값으로 씁니다. 2회차부터는 이를 +2 dB 올린 값에서 출발해, 셀마다 음성이 없을 확률 $P(H_0) = 1 - \big[1 + (1+\xi_{H1})\,e^{-\gamma\,\xi_{H1}/(1+\xi_{H1})}\big]^{-1}$ ($\xi_{H1}$ = 10 dB, Gerkmann & Hendriks 2012)로 가중한 평균 $\sigma^2(k) = \sum_t P(H_0)|Y|^2 / \sum_t P(H_0)$을 3번 반복해 구하고 주파수 방향으로 3-bin 평활화합니다 (파일마다 하나의 값; 2회차 2단계).
 3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리).
 4. **이득 (단계 1):** MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985).
 5. **저역 차단 (단계 6):** 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한합니다 (바람·기계 등 저역 잡음). 1회차 제출본에는 켜져 있고(`wind_module`), 2회차부터는 이를 일반화한 **대역별 최소 이득**(`band_floor`)으로 바꿨습니다: 325 Hz 아래는 출력을 Noisy 입력 대비 −25 dB 이하로 제한하고, 경계 2 bin에 걸쳐 부드럽게 잇습니다 (2회차 1단계, 팀 채택).
@@ -75,6 +75,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | Wiener decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
 | Wiener 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
 | 잡음 추정 방식 | `fixed` (단계 2 실험은 `spp`, 미채택) | `noise_tracker`, `spp_*` |
+| 정상 잡음 추정 | `spp_iter`: SPP 가중 반복 (ξ_H1 10 dB, 3회, 시작값 +2 dB) (2회차 2단계 채택) | `noise_estimator`, `noise_spp_*`, `noise_beta_*` |
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd_bidir` (정·역방향 DD 평균) | `prior_snr`, `ceps_*`, `ml2d_*` |
 | 유성음 위상 복원 | 1회차: 켬 (주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임) / 2회차 기본값: 끔 | `phase_reconstruction`, `phase_*` |
@@ -141,6 +142,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | 6d | 6b + HPSS 과도음 잡음 PSD (박수·클릭 대상) | 1.873 | 1.809 | 3.82 | 미채택 (유의하지 않음, 대상 파일 1–3개) |
 | R2-0 | 2회차 기준(r02-base): 1회차 제출본에서 위상 복원과 325 Hz 저역 차단을 끔 | 1.7709 | 1.7388 | 13.83 | 기준 (이후 단계의 비교 대상, `results/experiments/20261113-r02-base/`). 저역 차단은 블라인드 청취에서 팀이 끈 쪽을 선택했고, Train에서 vehicle_interior −0.12로 2회차 규칙 3을 만족하지 못함 |
 | R2-1 | r02-base + 대역별 최소 이득 (325 Hz 아래 −25 dB, 경계 2 bin 평활) | 1.933 | 1.875 | 2.50 | 채택 (팀 결정 2026-11-13: SNR 조건을 채택 조건에서 제외). Train 조건 1–3 통과, Validation +0.136 (95 % 구간 0.111–0.166). SNR 13.83 → 2.50 dB. 새 기준 `20261113-r02-base-s1` |
+| R2-2 | R2-1 + SPP 가중 반복 잡음 추정 (ξ_H1 10 dB, 3회) | 1.949 | 1.887 | 2.48 | 채택, 청취 확인 대기. Train +0.015 (95 % 구간 0.008–0.022), Validation +0.012. 과대추정이 컸던 전화·차량 실내·바람이 크게 오르고 조종석·경보 등 정상 잡음은 0.03–0.08 내림 (파일 중앙값 −0.005) |
 
 ### 로드맵 결과 요약
 
@@ -199,7 +201,7 @@ python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening
     --a "기준" --b "새:wind_module=false"
 ```
 
-2회차 실험은 현재 기본값의 결과인 `results/experiments/20261113-r02-base-s1/`(1단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261113-r02-base/`, 대역별 최소 이득 끔)은 기록으로 남겨 둡니다. 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
+2회차 실험은 현재 기본값의 결과인 `results/experiments/20261113-r02-base-s2/`(2단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
 
 ### 2회차 채택 조건
 
@@ -230,6 +232,7 @@ tools/
   evaluate.py           Train / Validation SNR / PESQ 평가 (--set 으로 설정 덮어쓰기)
   compare_runs.py       두 평가 결과의 대응 부트스트랩·Wilcoxon, 잡음 종류·SNR별 비교, 채택 조건 점검
   baseline_summary.py   기준 결과 통계 요약 (summary.md)
+  diagnose_noise_estimate.py  잡음 추정 / 실제 잡음 비율 진단 (대역·잡음 종류·SNR별)
   plot_spectrograms.py  고정 청취 목록의 스펙트로그램
   make_ab_listening.py  블라인드 A/B 청취 세트 생성
 tests/                  회귀 테스트 (unittest) 와 참조값 (tests/data/)
