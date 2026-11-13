@@ -18,7 +18,8 @@ SECONDS = 3.0
 
 # Stage-0 baseline Wiener (notebook algorithm), independent of the current defaults.
 WIENER_BASELINE = replace(CONFIG, gain_rule="wiener", prior_snr="dd", wind_module=False,
-                          band_floor=False,
+                          band_floor=False, noise_estimator="lowenergy", noise_beta_low=1.0,
+                          noise_beta=1.0, noise_beta_high=1.0,
                           phase_reconstruction=False, noise_tracker="fixed", omlsa=False,
                           tonal_module=False, rpca_module=False, transient_module=False)
 CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE}
