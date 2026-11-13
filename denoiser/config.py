@@ -13,9 +13,10 @@ class Config:
     # Noise PSD: mean power of the lowest-energy complete frames, smoothed over 3 bins.
     noise_fraction: float = 0.20
 
-    # Defaults = round-01 submission: the stack adopted over roadmap stages 1-6
-    # (results/experiments.csv). Setting gain_rule="wiener", prior_snr="dd",
-    # phase_reconstruction=False and wind_module=False gives the stage-0 baseline Wiener.
+    # Defaults = round-02 base: the round-01 submission (tag round-01) with phase
+    # reconstruction switched off (re-measured with the low cut on: no effect, team decision).
+    # Setting gain_rule="wiener", prior_snr="dd" and wind_module=False gives the stage-0
+    # baseline Wiener; phase_reconstruction=True gives the round-01 submission.
     # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
@@ -110,7 +111,9 @@ class Config:
     # "frequency" = across frequency only (eq. 13). Harmonics up to 4 kHz as in the paper.
     # f0 by YIN on the enhanced signal (the paper's PEFAC uses a trained voicing model);
     # YIN threshold 0.1 and the -30 dB energy gate are our choices (not from the paper).
-    phase_reconstruction: bool = True  # stage 5 (adopted variant below)
+    # Off from round 02: with the 325 Hz low cut on it no longer changes PESQ-WB
+    # (Validation 1.8056 off vs 1.8053 on). The variant parameters below are kept.
+    phase_reconstruction: bool = False
     phase_mode: str = "frequency"
     phase_max_hz: float = 600.0
     phase_f0_min: float = 60.0
