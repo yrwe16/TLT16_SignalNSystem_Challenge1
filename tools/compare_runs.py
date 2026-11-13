@@ -2,7 +2,7 @@
 
 Usage:
     python tools/compare_runs.py BASE_DIR NEW_DIR [--split train] [--out OUT_DIR]
-                                 [--val-tolerance 0.005] [--snr-drop 0.5]
+                                 [--val-tolerance 0.005] [--snr-drop DB]
 
 Reads <split>_per_file.csv from both folders, pairs files by segment_id and reports for
 PESQ-WB (and SNR):
@@ -15,7 +15,8 @@ PESQ-WB (and SNR):
   - the round-02 adoption checks (common rules and team decisions of 2026-11-13): Train mean
     +0.01 with the interval above 0, no noise type with >= 10 files down by more than 0.1,
     no SNR bin down by more than 0.02; Validation mean down by at most --val-tolerance
-    (0.005) and Validation mean SNR at most --snr-drop (0.5 dB) below the base run.
+    (0.005). The mean SNR is always reported; an SNR check runs only with --snr-drop
+    (the SNR condition was dropped by the team on 2026-11-13).
 Requires requirements-eval.txt (pandas, scipy).
 """
 
@@ -96,8 +97,9 @@ def criteria(results, df, split, val_tolerance, snr_drop):
         checks["no_snr_bin_down_>0.02"] = bool(snr.mean_diff.min() >= -0.02)
     else:
         checks[f"validation_mean_diff_>=-{val_tolerance}"] = bool(overall.mean_diff >= -val_tolerance)
-        checks[f"validation_snr_not_below_base_by_>{snr_drop}dB"] = bool(
-            df.snr_new.mean() >= df.snr_base.mean() - snr_drop)
+        if snr_drop is not None:
+            checks[f"validation_snr_not_below_base_by_>{snr_drop}dB"] = bool(
+                df.snr_new.mean() >= df.snr_base.mean() - snr_drop)
     return checks
 
 
@@ -109,9 +111,10 @@ def main():
     parser.add_argument("--out", type=Path, help="folder for the comparison CSV/JSON files")
     parser.add_argument("--val-tolerance", type=float, default=0.005,
                         help="Validation PESQ may fall by at most this much (team decision 3)")
-    parser.add_argument("--snr-drop", type=float, default=0.5,
-                        help="Validation mean SNR may fall by at most this many dB below the "
-                             "base run (team decision 2)")
+    parser.add_argument("--snr-drop", type=float, default=None,
+                        help="optional SNR check: Validation mean SNR may fall by at most this "
+                             "many dB below the base run. Off by default: since 2026-11-13 SNR "
+                             "is reported but is not an adoption condition (team decision)")
     args = parser.parse_args()
 
     df = load_pairs(args.base, args.new, args.split)
