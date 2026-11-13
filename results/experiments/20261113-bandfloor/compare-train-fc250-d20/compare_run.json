@@ -1,0 +1,22 @@
+{
+  "base": "results\\experiments\\20261113-r02-base\\train",
+  "new": "results\\experiments\\20261113-bandfloor\\train-fc250-d20",
+  "split": "train",
+  "snr_weighted_mean": {
+    "pesq": {
+      "base": 1.6485124241013474,
+      "new": 1.7364782115683304
+    },
+    "snr": {
+      "base": 11.884176161314219,
+      "new": 4.292100918826534
+    }
+  },
+  "checks": {
+    "train_mean_+0.01": true,
+    "train_ci_above_0": true,
+    "no_type_n>=10_down_>0.1": true,
+    "no_snr_bin_down_>0.02": true
+  },
+  "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
+}

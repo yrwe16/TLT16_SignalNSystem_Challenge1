@@ -1,0 +1,20 @@
+{
+  "base": "results\\experiments\\20261113-r02-base\\validation",
+  "new": "results\\experiments\\20261113-bandfloor\\validation-fc325-d25-s2",
+  "split": "validation",
+  "snr_weighted_mean": {
+    "pesq": {
+      "base": 1.6132596402659276,
+      "new": 1.7493208313117634
+    },
+    "snr": {
+      "base": 12.106745755181889,
+      "new": 2.3577113034197996
+    }
+  },
+  "checks": {
+    "validation_mean_diff_>=-0.005": true,
+    "validation_snr_not_below_base_by_>0.5dB": false
+  },
+  "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
+}
