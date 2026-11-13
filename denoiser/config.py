@@ -13,11 +13,11 @@ class Config:
     # Noise PSD: mean power of the lowest-energy complete frames, smoothed over 3 bins.
     noise_fraction: float = 0.20
 
-    # Defaults = round-02 base: the round-01 submission (tag round-01) with phase
-    # reconstruction and the 325 Hz low cut switched off (team decisions: phase had no effect
-    # with the low cut on; the low cut was rejected in blind listening and failed the round-02
-    # rule on vehicle_interior). Setting gain_rule="wiener" and prior_snr="dd" gives the
-    # stage-0 baseline Wiener; phase_reconstruction=True and wind_module=True give round-01.
+    # Defaults = round-02 base after step R2-1: MMSE-LSA + bidirectional DD + band_floor
+    # (325 Hz, -25 dB, 2-bin transition; adopted by the team on 2026-11-13). Phase
+    # reconstruction and the round-01 wind_module stay off. Round 01 (tag round-01) =
+    # band_floor=False, wind_module=True, phase_reconstruction=True. Stage-0 baseline Wiener =
+    # gain_rule="wiener", prior_snr="dd", band_floor=False.
     # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
@@ -149,15 +149,17 @@ class Config:
     # Round-02 step 1, band-dependent gain floor (generalizes wind_module): bands
     # [0, band_cutoff_hz), [cutoff, 1 kHz), [1, 4 kHz), [4 kHz, fs/2]. Below the cutoff the
     # output is capped at band_low_depth_db relative to the noisy input; the other bands get
-    # their own LSA floor. These defaults reproduce wind_module=True (325 Hz, -15 dB) exactly.
-    # Values are our choice. Requires gain_rule="lsa" and prior_snr="dd_bidir".
-    band_floor: bool = False
+    # their own LSA floor. With band_low_depth_db=-15 and band_smooth_bins=0 it reproduces
+    # wind_module=True (325 Hz, -15 dB) exactly. Values are our choice, chosen on Train by
+    # PESQ-WB (results/experiments/20261113-bandfloor). Requires gain_rule="lsa" and
+    # prior_snr="dd_bidir".
+    band_floor: bool = True                # adopted in round 02, step R2-1
     band_cutoff_hz: float = 325.0
-    band_low_depth_db: float = -15.0
+    band_low_depth_db: float = -25.0
     band_mid_floor_db: float = -15.0       # [cutoff, 1000) Hz
     band_midhigh_floor_db: float = -15.0   # [1000, 4000) Hz
     band_high_floor_db: float = -15.0      # [4000, fs/2] Hz
-    band_smooth_bins: int = 0              # 0, 1 or 2 bins of linear transition
+    band_smooth_bins: int = 2              # 0, 1 or 2 bins of linear transition
 
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
