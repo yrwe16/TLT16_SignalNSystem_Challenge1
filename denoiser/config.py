@@ -13,11 +13,12 @@ class Config:
     # Noise PSD: mean power of the lowest-energy complete frames, smoothed over 3 bins.
     noise_fraction: float = 0.20
 
-    # Defaults = round-02 base after step R2-1: MMSE-LSA + bidirectional DD + band_floor
-    # (325 Hz, -25 dB, 2-bin transition; adopted by the team on 2026-11-13). Phase
+    # Defaults = round-02 base after step R2-2: MMSE-LSA + bidirectional DD + band_floor
+    # (325 Hz, -25 dB, 2-bin transition; R2-1) + SPP-weighted noise estimate (xi_H1 10 dB,
+    # 3 iterations; R2-2; noise_estimator="lowenergy" gives the R2-1 base). Phase
     # reconstruction and the round-01 wind_module stay off. Round 01 (tag round-01) =
     # band_floor=False, wind_module=True, phase_reconstruction=True. Stage-0 baseline Wiener =
-    # gain_rule="wiener", prior_snr="dd", band_floor=False.
+    # gain_rule="wiener", prior_snr="dd", band_floor=False, noise_estimator="lowenergy".
     # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
@@ -161,6 +162,20 @@ class Config:
     band_high_floor_db: float = -15.0      # [4000, fs/2] Hz
     band_smooth_bins: int = 2              # 0, 1 or 2 bins of linear transition
 
+    # Round-02 step 2, stationary noise estimate (noise_tracker="fixed" only):
+    # "lowenergy" = quietest frames by total energy (default, unchanged); "band_frames" =
+    # quietest frames chosen per band (b); "spp_iter" = SPP-weighted fixed point started from
+    # the lowenergy estimate + start_db (c). The band factors (a) apply after any estimator.
+    # All values our choice except the SPP formula (Gerkmann & Hendriks 2012).
+    noise_estimator: str = "spp_iter"   # adopted in round 02, step R2-2
+    noise_band_fraction: float = 0.2
+    noise_spp_snr_db: float = 10.0      # chosen on Train from {10, 15, 20} (edge of grid)
+    noise_spp_iterations: int = 3       # chosen on Train from {2, 3} (edge of grid)
+    noise_spp_start_db: float = 2.0
+    noise_beta_low: float = 1.0    # below 325 Hz
+    noise_beta: float = 1.0        # 325 Hz - 4 kHz
+    noise_beta_high: float = 1.0   # from 4 kHz
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -232,6 +247,11 @@ class Config:
                              "wind_module=False.")
         if self.band_cutoff_hz <= 0 or self.band_smooth_bins not in (0, 1, 2):
             raise ValueError("Invalid band_floor parameters.")
+        if self.noise_estimator not in ("lowenergy", "band_frames", "spp_iter"):
+            raise ValueError("noise_estimator must be 'lowenergy', 'band_frames' or 'spp_iter'.")
+        if (min(self.noise_beta_low, self.noise_beta, self.noise_beta_high) <= 0
+                or not 0 < self.noise_band_fraction <= 1 or self.noise_spp_iterations < 1):
+            raise ValueError("Invalid noise estimate parameters.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

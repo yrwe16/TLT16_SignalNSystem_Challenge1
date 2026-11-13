@@ -8,10 +8,29 @@ import soundfile as sf
 from .config import CONFIG
 from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
                     wiener_decision_directed)
-from .noise_estimation import (add_tonal_noise, lowest_energy_frames, rpca_noise,
+from .noise_estimation import (add_tonal_noise, band_frame_noise, lowest_energy_frames,
+                               rpca_noise, scale_noise_bands, spp_weighted_noise,
                                tracked_noise, transient_noise)
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
+
+
+def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
+    """Background noise PSD from the noisy STFT only (one vector, or one per frame)."""
+    if cfg.noise_tracker == "spp":
+        return tracked_noise(z, times, length, sample_rate, n_fft, hop, cfg)
+    if cfg.noise_estimator == "band_frames":
+        noise = band_frame_noise(z, times, length, sample_rate, n_fft, cfg.noise_band_fraction)
+    else:
+        noise = lowest_energy_frames(z, times, length, sample_rate, n_fft, cfg.noise_fraction)
+        if cfg.noise_estimator == "spp_iter":
+            noise = spp_weighted_noise(z, times, length, sample_rate, n_fft, noise,
+                                       cfg.noise_spp_snr_db, cfg.noise_spp_iterations,
+                                       cfg.noise_spp_start_db)
+    if (cfg.noise_beta_low, cfg.noise_beta, cfg.noise_beta_high) != (1.0, 1.0, 1.0):
+        noise = scale_noise_bands(noise, sample_rate, n_fft, cfg.noise_beta_low,
+                                  cfg.noise_beta, cfg.noise_beta_high)
+    return noise
 
 
 def denoise_signal(x, sample_rate, cfg=CONFIG):
@@ -21,10 +40,7 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         return x.copy()
     n_fft, hop = cfg.stft_sizes(sample_rate)
     _, times, z = stft(x, sample_rate, n_fft, hop)
-    if cfg.noise_tracker == "spp":
-        noise = tracked_noise(z, times, len(x), sample_rate, n_fft, hop, cfg)
-    else:
-        noise = lowest_energy_frames(z, times, len(x), sample_rate, n_fft, cfg.noise_fraction)
+    noise = estimate_noise_psd(z, times, len(x), sample_rate, n_fft, hop, cfg)
     if cfg.tonal_module:
         noise = add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg)
     if cfg.rpca_module:

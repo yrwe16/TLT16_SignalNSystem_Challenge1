@@ -222,3 +222,59 @@ def transient_noise(noise, z, cfg):
     transient_noise.share = float(frames.mean())
     base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, mag.shape)
     return base + np.where(mask, mag ** 2, 0.0)
+
+
+NOISE_BAND_EDGES = (0.0, 325.0, 1000.0, 2000.0, 4000.0)
+
+
+def band_frame_noise(z, times, length, sample_rate, n_fft, fraction):
+    """Round-02 step 2 (b): choose the quietest complete frames separately per band
+    (0/325/1k/2k/4k/fs/2 Hz) by the band energy, average their power, smooth over 3 bins.
+    Band edges and the per-band selection are our choice."""
+    power = np.abs(z) ** 2
+    full = complete_frames(times, length, sample_rate, n_fft, power.shape[1])
+    freqs = np.arange(power.shape[0]) * sample_rate / n_fft
+    edges = list(NOISE_BAND_EDGES) + [np.inf]
+    estimate = np.empty(power.shape[0])
+    count = max(1, int(np.ceil(fraction * len(full))))
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        band = (freqs >= lo) & (freqs < hi)
+        if not band.any():
+            continue
+        energy = power[np.ix_(band, full)].mean(axis=0)
+        chosen = full[np.argsort(energy, kind="stable")[:count]]
+        estimate[band] = power[np.ix_(band, chosen)].mean(axis=1)
+    return np.maximum(uniform_filter1d(estimate, size=3, mode="nearest"), 1e-18)
+
+
+def spp_weighted_noise(z, times, length, sample_rate, n_fft, initial, snr_db, iterations,
+                       start_db):
+    """Round-02 step 2 (c): noise PSD as an SPP-weighted average over the whole clip.
+
+    P(H1|Y) = 1 / (1 + (1+xi_H1) exp(-gamma xi_H1/(1+xi_H1))) with P(H1) = 0.5
+    (a posteriori SPP of Gerkmann & Hendriks, IEEE TASLP 20(4), 2012, as in VOICEBOX
+    v_estnoiseg), gamma = |Y|^2 / sigma^2. Then sigma^2(k) = sum_t P(H0)|Y|^2 / sum_t P(H0)
+    over the complete frames, repeated `iterations` times from initial * 10^(start_db/10),
+    and smoothed over 3 bins. The batch fixed-point use over the clip is our choice.
+    """
+    power = np.abs(z) ** 2
+    full = complete_frames(times, length, sample_rate, n_fft, power.shape[1])
+    y = power[:, full]
+    xi_h1 = 10 ** (snr_db / 10)
+    sigma = np.maximum(np.asarray(initial, float) * 10 ** (start_db / 10), 1e-18)
+    for _ in range(iterations):
+        gamma = y / sigma[:, None]
+        p_absent = 1 - 1 / (1 + (1 + xi_h1) * np.exp(-gamma * xi_h1 / (1 + xi_h1)))
+        weight = p_absent.sum(axis=1)
+        new = (p_absent * y).sum(axis=1) / np.maximum(weight, 1e-12)
+        sigma = np.where(weight > 1e-6, np.maximum(new, 1e-18), sigma)
+    return np.maximum(uniform_filter1d(sigma, size=3, mode="nearest"), 1e-18)
+
+
+def scale_noise_bands(noise, sample_rate, n_fft, beta_low, beta, beta_high):
+    """Round-02 step 2 (a): multiply the estimate by beta_low below 325 Hz, beta in
+    [325, 4000) Hz and beta_high from 4 kHz. Applied after the 3-bin smoothing, per bin, so a
+    band's factor does not leak into the neighbouring band. Values: our choice."""
+    freqs = np.arange(noise.shape[0]) * sample_rate / n_fft
+    factor = np.where(freqs < 325.0, beta_low, np.where(freqs < 4000.0, beta, beta_high))
+    return noise * (factor if noise.ndim == 1 else factor[:, None])
