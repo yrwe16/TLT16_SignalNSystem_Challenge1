@@ -1,0 +1,46 @@
+{
+  "source": "results/experiments/20261113-r02-base/validation/validation_per_file.csv (round-02 base: phase reconstruction and 325 Hz low cut off)",
+  "tolerance": 0.001,
+  "files": [
+    {
+      "segment_id": "speaker007_utt02_seg0011",
+      "noise_category": "machine",
+      "target_snr_db": 0.0,
+      "noisy_path": "validation/noisy/speaker007_utt02_seg0011_noisy.wav",
+      "clean_path": "validation/clean/speaker007_utt02_seg0011.wav",
+      "pesq_wb": 1.081498
+    },
+    {
+      "segment_id": "speaker015_utt01_seg0008",
+      "noise_category": "wind",
+      "target_snr_db": 5.0,
+      "noisy_path": "validation/noisy/speaker015_utt01_seg0008_noisy.wav",
+      "clean_path": "validation/clean/speaker015_utt01_seg0008.wav",
+      "pesq_wb": 1.377924
+    },
+    {
+      "segment_id": "speaker007_utt01_seg0003",
+      "noise_category": "alarm_siren",
+      "target_snr_db": 10.0,
+      "noisy_path": "validation/noisy/speaker007_utt01_seg0003_noisy.wav",
+      "clean_path": "validation/clean/speaker007_utt01_seg0003.wav",
+      "pesq_wb": 1.574002
+    },
+    {
+      "segment_id": "speaker007_utt01_seg0008",
+      "noise_category": "aircraft_cockpit",
+      "target_snr_db": 5.0,
+      "noisy_path": "validation/noisy/speaker007_utt01_seg0008_noisy.wav",
+      "clean_path": "validation/clean/speaker007_utt01_seg0008.wav",
+      "pesq_wb": 1.297887
+    },
+    {
+      "segment_id": "speaker007_utt01_seg0011",
+      "noise_category": "broadband_noise",
+      "target_snr_db": 15.0,
+      "noisy_path": "validation/noisy/speaker007_utt01_seg0011_noisy.wav",
+      "clean_path": "validation/clean/speaker007_utt01_seg0011.wav",
+      "pesq_wb": 1.472242
+    }
+  ]
+}
