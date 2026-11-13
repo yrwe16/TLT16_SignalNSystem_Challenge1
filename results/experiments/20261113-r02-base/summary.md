@@ -2,19 +2,19 @@
 
 ## Train (1296 files)
 
-- Mean PESQ-WB 1.8725, mean SNR 4.11 dB (noisy: PESQ 1.4704, SNR 9.69 dB)
-- SNR-equally-weighted mean: PESQ-WB 1.7474, SNR 3.89 dB
-- Paired difference base - low cut off (wind_module=false): mean +0.1015, SD_d 0.1585, n 1296, MDE = 2.8 x SD_d / sqrt(n) = 0.0123
-- Processing time per file: mean 0.102 s, median 0.101 s, max 0.200 s (16 parallel workers, BLAS threads {'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'})
+- Mean PESQ-WB 1.7709, mean SNR 13.52 dB (noisy: PESQ 1.4704, SNR 9.69 dB)
+- SNR-equally-weighted mean: PESQ-WB 1.6485, SNR 11.88 dB
+- Paired difference base - round-01 325 Hz low cut on (wind_module=true): mean -0.1015, SD_d 0.1585, n 1296, MDE = 2.8 x SD_d / sqrt(n) = 0.0123
+- Processing time per file: mean 0.054 s, median 0.056 s, max 0.112 s (16 parallel workers, BLAS threads {'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'})
 
 ### Mean per target SNR
 
 | target_snr_db | files | pesq_noisy | pesq | snr_db |
 | --- | --- | --- | --- | --- |
-| 0.0 | 117 | 1.1678 | 1.3372 | 3.0073 |
-| 5.0 | 298 | 1.2548 | 1.5764 | 3.8674 |
-| 10.0 | 429 | 1.4042 | 1.8214 | 4.2318 |
-| 15.0 | 452 | 1.7538 | 2.2546 | 4.4388 |
+| 0.0 | 117 | 1.1678 | 1.2537 | 6.2517 |
+| 5.0 | 298 | 1.2548 | 1.4678 | 10.0989 |
+| 10.0 | 429 | 1.4042 | 1.7121 | 13.6514 |
+| 15.0 | 452 | 1.7538 | 2.1604 | 17.5347 |
 
 ### Files per noise type x target SNR
 
@@ -47,19 +47,19 @@
 
 ## Validation (164 files)
 
-- Mean PESQ-WB 1.8056, mean SNR 3.84 dB (noisy: PESQ 1.3947, SNR 9.63 dB)
-- SNR-equally-weighted mean: PESQ-WB 1.6801, SNR 3.63 dB
-- Paired difference base - low cut off (wind_module=false): mean +0.0668, SD_d 0.1427, n 164, MDE = 2.8 x SD_d / sqrt(n) = 0.0312
-- Processing time per file: mean 0.050 s, median 0.049 s, max 0.098 s (16 parallel workers, BLAS threads {'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'})
+- Mean PESQ-WB 1.7388, mean SNR 13.83 dB (noisy: PESQ 1.3947, SNR 9.63 dB)
+- SNR-equally-weighted mean: PESQ-WB 1.6132, SNR 12.11 dB
+- Paired difference base - round-01 325 Hz low cut on (wind_module=true): mean -0.0668, SD_d 0.1427, n 164, MDE = 2.8 x SD_d / sqrt(n) = 0.0312
+- Processing time per file: mean 0.052 s, median 0.051 s, max 0.095 s (16 parallel workers, BLAS threads {'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'})
 
 ### Mean per target SNR
 
 | target_snr_db | files | pesq_noisy | pesq | snr_db |
 | --- | --- | --- | --- | --- |
-| 0.0 | 15 | 1.0796 | 1.2479 | 2.7677 |
-| 5.0 | 38 | 1.2181 | 1.514 | 3.6074 |
-| 10.0 | 55 | 1.3575 | 1.7893 | 4.003 |
-| 15.0 | 56 | 1.6354 | 2.169 | 4.1304 |
+| 0.0 | 15 | 1.0796 | 1.1778 | 5.8656 |
+| 5.0 | 38 | 1.2181 | 1.4566 | 10.4811 |
+| 10.0 | 55 | 1.3575 | 1.6926 | 14.0814 |
+| 15.0 | 56 | 1.6354 | 2.126 | 17.9988 |
 
 ### Files per noise type x target SNR
 

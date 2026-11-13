@@ -1,6 +1,6 @@
 {
-  "split": "train",
-  "files": 1296,
+  "split": "validation",
+  "files": 164,
   "config": {
     "frame_seconds": 0.032,
     "overlap_ratio": 0.75,
@@ -60,16 +60,14 @@
     "rpca_lambda_scale": 1.0,
     "rpca_combine": "replace",
     "rpca_max_iter": 100,
-    "wind_module": false,
+    "wind_module": true,
     "wind_cutoff_hz": 325.0,
     "transient_module": false,
     "transient_margin": 2.0,
     "transient_frame_share": 0.3,
     "pcm_peak_limit": 0.999
   },
-  "overrides": [
-    "wind_module=false"
-  ],
+  "overrides": [],
   "python": "3.14.8",
   "pesq_mode": "wb",
   "snr": "10*log10(sum(clean**2)/sum((clean-output)**2)), no alignment",
@@ -83,8 +81,8 @@
     "OPENBLAS_NUM_THREADS": "1"
   },
   "process_seconds_per_file": {
-    "mean": 0.10186816520089687,
-    "median": 0.10138129998813383,
-    "max": 0.20662449998781085
+    "mean": 0.050260971341830135,
+    "median": 0.04943009999988135,
+    "max": 0.09834880000562407
   }
 }

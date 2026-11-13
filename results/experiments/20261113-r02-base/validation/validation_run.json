@@ -60,7 +60,7 @@
     "rpca_lambda_scale": 1.0,
     "rpca_combine": "replace",
     "rpca_max_iter": 100,
-    "wind_module": true,
+    "wind_module": false,
     "wind_cutoff_hz": 325.0,
     "transient_module": false,
     "transient_margin": 2.0,
@@ -81,8 +81,8 @@
     "OPENBLAS_NUM_THREADS": "1"
   },
   "process_seconds_per_file": {
-    "mean": 0.050260971341830135,
-    "median": 0.04943009999988135,
-    "max": 0.09834880000562407
+    "mean": 0.05224670000000226,
+    "median": 0.05139824999787379,
+    "max": 0.09472719999030232
   }
 }

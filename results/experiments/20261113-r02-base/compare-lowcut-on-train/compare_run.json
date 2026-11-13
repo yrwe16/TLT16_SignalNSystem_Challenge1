@@ -1,6 +1,6 @@
 {
-  "base": "results\\experiments\\20261113-r02-base\\lowcut-off\\train",
-  "new": "results\\experiments\\20261113-r02-base\\train",
+  "base": "results\\experiments\\20261113-r02-base\\train",
+  "new": "results\\experiments\\20261113-r02-base\\lowcut-on\\train",
   "split": "train",
   "snr_weighted_mean": {
     "pesq": {

@@ -1,6 +1,6 @@
 {
-  "base": "results\\experiments\\20261113-r02-base\\lowcut-off\\validation",
-  "new": "results\\experiments\\20261113-r02-base\\validation",
+  "base": "results\\experiments\\20261113-r02-base\\validation",
+  "new": "results\\experiments\\20261113-r02-base\\lowcut-on\\validation",
   "split": "validation",
   "snr_weighted_mean": {
     "pesq": {
@@ -13,8 +13,8 @@
     }
   },
   "checks": {
-    "validation_mean_not_lower": true,
-    "validation_snr_>=3.8": true
+    "validation_mean_diff_>=-0.005": true,
+    "validation_snr_not_below_base_by_>0.5dB": false
   },
   "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
 }
