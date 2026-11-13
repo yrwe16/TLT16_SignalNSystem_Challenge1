@@ -2,7 +2,7 @@
 
 Usage:
     python tools/compare_runs.py BASE_DIR NEW_DIR [--split train] [--out OUT_DIR]
-                                 [--snr-floor 3.8]
+                                 [--val-tolerance 0.005] [--snr-drop 0.5]
 
 Reads <split>_per_file.csv from both folders, pairs files by segment_id and reports for
 PESQ-WB (and SNR):
@@ -12,9 +12,10 @@ PESQ-WB (and SNR):
   - the mean per target SNR (0/5/10/15 dB) and the SNR-equally-weighted mean,
   - the change per noise_category (with file counts) and per target SNR,
   - the five files that got worst,
-  - the round-02 adoption checks (common rules): Train mean +0.01 with the interval above 0,
-    no noise type with >= 10 files down by more than 0.1, no SNR bin down by more than 0.02;
-    Validation mean not lower; Validation mean SNR >= --snr-floor.
+  - the round-02 adoption checks (common rules and team decisions of 2026-11-13): Train mean
+    +0.01 with the interval above 0, no noise type with >= 10 files down by more than 0.1,
+    no SNR bin down by more than 0.02; Validation mean down by at most --val-tolerance
+    (0.005) and Validation mean SNR at most --snr-drop (0.5 dB) below the base run.
 Requires requirements-eval.txt (pandas, scipy).
 """
 
@@ -81,7 +82,7 @@ def load_pairs(base_dir, new_dir, split):
                      .replace("snr_enhanced_db", "snr"))
 
 
-def criteria(results, df, split, snr_floor):
+def criteria(results, df, split, val_tolerance, snr_drop):
     overall = results["pesq_all"].iloc[0]
     checks = {}
     if split == "train":
@@ -94,8 +95,9 @@ def criteria(results, df, split, snr_floor):
         snr = results["pesq_target_snr_db"]
         checks["no_snr_bin_down_>0.02"] = bool(snr.mean_diff.min() >= -0.02)
     else:
-        checks["validation_mean_not_lower"] = bool(overall.mean_diff >= 0)
-        checks[f"validation_snr_>={snr_floor}"] = bool(df.snr_new.mean() >= snr_floor)
+        checks[f"validation_mean_diff_>=-{val_tolerance}"] = bool(overall.mean_diff >= -val_tolerance)
+        checks[f"validation_snr_not_below_base_by_>{snr_drop}dB"] = bool(
+            df.snr_new.mean() >= df.snr_base.mean() - snr_drop)
     return checks
 
 
@@ -105,8 +107,11 @@ def main():
     parser.add_argument("new", type=Path)
     parser.add_argument("--split", default="validation")
     parser.add_argument("--out", type=Path, help="folder for the comparison CSV/JSON files")
-    parser.add_argument("--snr-floor", type=float, default=3.8,
-                        help="minimum Validation mean SNR in dB (team decision 1)")
+    parser.add_argument("--val-tolerance", type=float, default=0.005,
+                        help="Validation PESQ may fall by at most this much (team decision 3)")
+    parser.add_argument("--snr-drop", type=float, default=0.5,
+                        help="Validation mean SNR may fall by at most this many dB below the "
+                             "base run (team decision 2)")
     args = parser.parse_args()
 
     df = load_pairs(args.base, args.new, args.split)
@@ -119,7 +124,7 @@ def main():
                                          "pesq_base", "pesq_new", "pesq_diff"]]
     weighted = {m: {"base": snr_weighted(df, f"{m}_base"), "new": snr_weighted(df, f"{m}_new")}
                 for m in ("pesq", "snr")}
-    checks = criteria(results, df, args.split, args.snr_floor)
+    checks = criteria(results, df, args.split, args.val_tolerance, args.snr_drop)
 
     pd.set_option("display.width", 180)
     cols = ["n", "base", "new", "mean_diff", "ci_low", "ci_high", "improved_share", "wilcoxon_p"]
