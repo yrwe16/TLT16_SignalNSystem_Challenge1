@@ -80,6 +80,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | 유성음 위상 복원 | 1회차: 켬 (주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임) / 2회차 기본값: 끔 | `phase_reconstruction`, `phase_*` |
 | 협대역 음 모듈 | 끔 (단계 6a 실험, 미채택) | `tonal_module`, `tonal_*` |
 | 저역 차단 (바람) | 1회차: 켬, 325 Hz / 2회차 기본값: 끔 | `wind_module`, `wind_cutoff_hz` |
+| 대역별 최소 이득 | 끔 (2회차 1단계 실험, 미채택) | `band_floor`, `band_*` |
 | RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
 | 과도음 잡음 PSD | 끔 (단계 6d 실험, 미채택) | `transient_module`, `transient_*` |
 
@@ -139,6 +140,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | 6c | 6b + RPCA 저랭크 잡음 PSD (기계·엔진·조종석 대상) | 1.870 | 1.805 | 3.83 | 미채택 (Validation −0.000) |
 | 6d | 6b + HPSS 과도음 잡음 PSD (박수·클릭 대상) | 1.873 | 1.809 | 3.82 | 미채택 (유의하지 않음, 대상 파일 1–3개) |
 | R2-0 | 2회차 기준(r02-base): 1회차 제출본에서 위상 복원과 325 Hz 저역 차단을 끔 | 1.7709 | 1.7388 | 13.83 | 기준 (이후 단계의 비교 대상, `results/experiments/20261113-r02-base/`). 저역 차단은 블라인드 청취에서 팀이 끈 쪽을 선택했고, Train에서 vehicle_interior −0.12로 2회차 규칙 3을 만족하지 못함 |
+| R2-1 | r02-base + 대역별 최소 이득 (325 Hz 아래 −25 dB, 경계 2 bin 평활) | 1.933 | 1.875 | 2.50 | 미채택 (조건 4 SNR 미충족: 13.83 → 2.50 dB), 청취 확인 대기. Train 조건 1–3은 통과, Validation +0.136 |
 
 ### 로드맵 결과 요약
 
