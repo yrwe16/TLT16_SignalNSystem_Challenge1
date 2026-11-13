@@ -14,3 +14,8 @@ __pycache__/
 *.part
 .ipynb_checkpoints/
 .DS_Store
+
+# Experiment audio and blind listening sets stay local (round 02 rule: commit CSV/JSON/md only)
+listening/
+results/**/*.wav
+results/**/*.WAV

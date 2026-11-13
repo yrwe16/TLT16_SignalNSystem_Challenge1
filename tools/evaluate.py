@@ -15,9 +15,11 @@ file are scored (as in the notebook); otherwise the whole file is scored.
 
 import argparse
 import json
+import os
 import platform
 import sys
 import tempfile
+import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
@@ -138,7 +140,7 @@ def main():
         else:
             enhanced_dir = args.keep_enhanced.resolve() if args.keep_enhanced else Path(tmp)
             jobs = [(root / p, enhanced_dir / Path(p).name, cfg) for p in manifest.noisy_path]
-            list(pool.map(_denoise_job, jobs, chunksize=8))
+            seconds = list(pool.map(_denoise_job, jobs, chunksize=8))
         targets = [enhanced_dir / Path(p).name for p in manifest.noisy_path]
         missing = [t for t in targets if not t.is_file()]
         if missing:
@@ -147,6 +149,10 @@ def main():
         jobs = [(str(root), row._asdict(), str(t))
                 for row, t in zip(manifest.itertuples(index=False), targets)]
         detail = pd.DataFrame(pool.map(score_row, jobs, chunksize=8))
+        if not args.enhanced_dir:
+            # wall time of denoise_file per file inside one worker process (single file,
+            # including reading and writing the WAV); workers run in parallel
+            detail["process_seconds"] = seconds
 
     out = args.results_dir
     out.mkdir(parents=True, exist_ok=True)
@@ -162,7 +168,15 @@ def main():
             "scored_region": ("first valid_samples samples (samples.csv column)"
                               if "valid_samples" in manifest.columns else "whole file"),
             "aggregation": "unweighted mean over files",
-            "scored_files": "denoised WAV files as written by denoise.py"}
+            "scored_files": "denoised WAV files as written by denoise.py",
+            "workers": args.workers or os.cpu_count(),
+            "blas_threads": {k: os.environ.get(k) for k in
+                             ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS")}}
+    if "process_seconds" in detail:
+        meta["process_seconds_per_file"] = {
+            "mean": float(detail.process_seconds.mean()),
+            "median": float(detail.process_seconds.median()),
+            "max": float(detail.process_seconds.max())}
     (out / f"{args.split}_run.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     pd.set_option("display.width", 120)
@@ -176,7 +190,9 @@ def main():
 
 def _denoise_job(job):
     source, target, cfg = job
+    start = time.perf_counter()
     denoise_file(source, target, cfg)
+    return time.perf_counter() - start
 
 
 if __name__ == "__main__":
