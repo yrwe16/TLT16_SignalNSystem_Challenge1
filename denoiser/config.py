@@ -14,9 +14,10 @@ class Config:
     noise_fraction: float = 0.20
 
     # Defaults = round-02 base: the round-01 submission (tag round-01) with phase
-    # reconstruction switched off (re-measured with the low cut on: no effect, team decision).
-    # Setting gain_rule="wiener", prior_snr="dd" and wind_module=False gives the stage-0
-    # baseline Wiener; phase_reconstruction=True gives the round-01 submission.
+    # reconstruction and the 325 Hz low cut switched off (team decisions: phase had no effect
+    # with the low cut on; the low cut was rejected in blind listening and failed the round-02
+    # rule on vehicle_interior). Setting gain_rule="wiener" and prior_snr="dd" gives the
+    # stage-0 baseline Wiener; phase_reconstruction=True and wind_module=True give round-01.
     # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
@@ -136,7 +137,9 @@ class Config:
     rpca_max_iter: int = 100
     # Wind: extra attenuation below wind_cutoff_hz (high-pass by capping the gain at the
     # LSA floor), as the skill's first step for wind noise.
-    wind_module: bool = True  # stage 6b
+    # Off from round 02 (team listening decision); to be re-examined as a milder low-band
+    # attenuation in round-02 step 1.
+    wind_module: bool = False
     wind_cutoff_hz: float = 325.0
     # Transients (clap, click, door, footsteps): HPSS percussive power added to the noise PSD.
     transient_module: bool = False
