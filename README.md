@@ -39,6 +39,19 @@ python denoise.py
 python tools/check_io.py          # input/ 과 output/ 비교
 ```
 
+### 회귀 테스트
+
+표준 라이브러리 `unittest`만 사용하며, 실행용 패키지(`requirements.txt`) 외에 추가 설치가 필요 없습니다.
+
+```bash
+python -m unittest discover tests                      # 데이터 없이: 합성 신호 출력 회귀, 입출력 규칙
+TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Validation 고정 5개 파일 PESQ (pesq 필요)
+```
+
+- `tests/test_regression.py`: 고정 시드 합성 신호(조화음 + 잡음, 16 kHz, 3초)에 기본값과 Wiener 베이스라인을 적용해 `tests/data/synthetic_*.npy`와 허용오차 1e-6으로 비교합니다. 기본값을 의도적으로 바꿀 때만 `python tests/make_reference.py`로 참조값을 다시 만듭니다.
+- `tests/test_io.py`: 같은 파일 이름·하위 폴더, 16-bit PCM, 샘플링 주파수·채널 수·길이 유지, 클리핑 샘플 0개.
+- `tests/test_validation_pesq.py`: `TLT16_DATA_ROOT`가 있을 때만 Validation 5개 파일의 PESQ-WB가 기록값(`tests/data/validation_pesq.json`) ±0.001 이내인지 확인합니다. Windows PowerShell에서는 `$env:TLT16_DATA_ROOT="C:\tlstl16\data"`로 설정합니다.
+
 ## 알고리즘
 
 강의 베이스라인 노트북(`noise_reduction_baselines.ipynb`)의 Wiener Filter에서 시작해, 비학습 문헌 로드맵을 단계별로 실험하고 Train에서 PESQ-WB로 고른 뒤 Validation으로 확인해 채택한 구성입니다 (아래 "실험 기록").
@@ -49,7 +62,7 @@ python tools/check_io.py          # input/ 과 output/ 비교
 3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리).
 4. **이득 (단계 1):** MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985).
 5. **저역 차단 (단계 6):** 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한합니다 (바람·기계 등 저역 잡음).
-6. **유성음 위상 복원 (단계 5):** 1차 출력에서 YIN으로 기본 주파수를 추정하고(비인과 평활), 유성음 프레임의 600 Hz 이하 위상을 고조파 모델과 분석 창의 위상으로 주파수 방향으로 복원합니다 (Krawczyk & Gerkmann, 2014). 유성음 경계에서는 3프레임에 걸쳐 크로스페이드합니다.
+6. **유성음 위상 복원 (단계 5):** 1차 출력에서 YIN으로 기본 주파수를 추정하고(비인과 평활), 유성음 프레임의 600 Hz 이하 위상을 고조파 모델과 분석 창의 위상으로 주파수 방향으로 복원합니다 (Krawczyk & Gerkmann, 2014). 유성음 경계에서는 3프레임에 걸쳐 크로스페이드합니다. 1회차 제출본(`round-01` 태그)에는 켜져 있고, 저역 차단과 함께 재측정했을 때 효과가 없어 2회차부터 `main`의 기본값에서는 끕니다 (`phase_reconstruction=False`, 코드는 유지).
 7. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
 
 | 파라미터 | 값 | 위치 |
@@ -64,7 +77,7 @@ python tools/check_io.py          # input/ 과 output/ 비교
 | 잡음 추정 방식 | `fixed` (단계 2 실험은 `spp`, 미채택) | `noise_tracker`, `spp_*` |
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd_bidir` (정·역방향 DD 평균) | `prior_snr`, `ceps_*`, `ml2d_*` |
-| 유성음 위상 복원 | 켬: 주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임 | `phase_reconstruction`, `phase_*` |
+| 유성음 위상 복원 | 1회차: 켬 (주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임) / 2회차 기본값: 끔 | `phase_reconstruction`, `phase_*` |
 | 협대역 음 모듈 | 끔 (단계 6a 실험, 미채택) | `tonal_module`, `tonal_*` |
 | 저역 차단 (바람) | 켬, 325 Hz | `wind_module`, `wind_cutoff_hz` |
 | RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
@@ -120,11 +133,12 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | 3 | 1단계 + OM-LSA (Cohen SPP, $G_{\min}$ −15 dB) | 1.729 | 1.690 | 13.13 | 미채택 (Validation −0.040) |
 | 4a | 1단계 + 켑스트럼-시간 평활 사전 SNR (논문 기본형) | 1.726 | | | 미채택 (Train −0.037) |
 | 4b | 1단계 + 양방향 DD 사전 SNR (오프라인 변형) | 1.771 | 1.739 | 13.83 | 채택, 청취 확인 대기 (Wilcoxon $p$ = 7×10⁻⁵) |
-| 5 | 4b + 유성음 위상 복원 (주파수 방향, 600 Hz 이하, 피치 평활·크로스페이드) | 1.774 | 1.743 | 13.78 | 채택 (효과 작음, 청취 확인 대기; Wilcoxon $p$ = 0.004) |
+| 5 | 4b + 유성음 위상 복원 (주파수 방향, 600 Hz 이하, 피치 평활·크로스페이드) | 1.774 | 1.743 | 13.78 | 채택 (효과 작음, 청취 확인 대기; Wilcoxon $p$ = 0.004). 최종 구성에서 재측정: 효과 없음(1.8056), 2회차부터 기본값에서 제외 |
 | 6a | 4b + 협대역 음 추적 잡음 PSD (경보·사이렌 대상) | 1.763 | 1.726 | 12.95 | 미채택 (Validation −0.013) |
 | 6b | 5 + 저역 차단 (325 Hz 아래 이득을 하한으로, 바람·저역 잡음 대상) | 1.872 | 1.805 | 3.83 | 채택 (Wilcoxon $p$ = 6×10⁻¹¹), 청취 확인 대기, SNR 크게 하락 |
 | 6c | 6b + RPCA 저랭크 잡음 PSD (기계·엔진·조종석 대상) | 1.870 | 1.805 | 3.83 | 미채택 (Validation −0.000) |
 | 6d | 6b + HPSS 과도음 잡음 PSD (박수·클릭 대상) | 1.873 | 1.809 | 3.82 | 미채택 (유의하지 않음, 대상 파일 1–3개) |
+| R2-0 | 2회차 기준(r02-base): 1회차 제출본에서 위상 복원만 끔 | 1.8725 | 1.8056 | 3.84 | 기준 (이후 단계의 비교 대상, `results/experiments/20261113-r02-base/`) |
 
 ### 로드맵 결과 요약
 
@@ -137,7 +151,7 @@ Config(gain_rule="lsa", prior_snr="dd_bidir",                       # 단계 1, 
        wind_module=True, wind_cutoff_hz=325.0)                      # 단계 6b
 ```
 
-- 이 설정이 `config.py`의 기본값이며 1회차(`round-01`)로 제출합니다.
+- 이 설정으로 1회차(`round-01` 태그)를 제출했습니다. 2회차부터 `main`의 기본값은 이 설정에서 위상 복원만 끈 것(r02-base)입니다.
 - 단계 4b, 5, 6b는 청취 확인 전입니다. 특히 6b는 325 Hz 아래(남성 목소리의 기본 주파수 대역)를 줄이므로 목소리가 얇게 들릴 수 있고, SNR이 3.8 dB로 처리 전(9.6 dB)보다 낮아집니다. 순위 지표인 PESQ-WB는 모든 주요 잡음 종류에서 올랐습니다.
 - SNR을 함께 지켜야 한다면 6b 없이(PESQ 1.743, SNR 13.8 dB) 또는 낮은 차단 주파수(150 Hz: Train PESQ 1.789, SNR 8.7 dB)를 쓸 수 있습니다.
 
@@ -171,11 +185,19 @@ Train 후보 11개가 모두 4b보다 낮았고 (최고 −0.008), Validation에
 # 설정을 바꿔 평가 (결과를 실험 폴더에 저장)
 python tools/evaluate.py --data-root <데이터 폴더> --split train --set gain_rule=lsa \
     --set lsa_gain_floor=0.178 --results-dir results/experiments/<이름>/train-<후보>
-# 두 평가 결과의 파일별 짝지은 비교 (Wilcoxon signed-rank, 잡음 종류·SNR별)
-python tools/compare_runs.py <기준 결과 폴더> <새 결과 폴더> --split validation
+# 두 평가 결과의 파일별 비교: 대응 부트스트랩 95 % 구간(10,000회), Wilcoxon, SNR 구간별·잡음 종류별 변화,
+# 가장 나빠진 5개 파일, 2회차 채택 조건 점검
+python tools/compare_runs.py <기준 결과 폴더> <새 결과 폴더> --split train
+# 기준 결과의 통계 요약 (SNR × 잡음 종류 파일 수, SNR 균등 가중 평균, SD_d와 MDE, 처리 시간)
+python tools/baseline_summary.py --base <기준 폴더> --contrast <대조 폴더> --out <폴더>/summary.md
 # 고정 청취 목록(results/listening_set.txt)의 스펙트로그램 (matplotlib 필요)
 python tools/plot_spectrograms.py --data-root <데이터 폴더> --run "이전=<폴더>" --run "새=<폴더>" --out <폴더>
+# 블라인드 A/B 청취 세트 (WAV는 listening/에만 저장되고 커밋되지 않음, 정답은 <이름>_answers.json)
+python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening/<이름> \
+    --a "기준" --b "새:wind_module=false"
 ```
+
+2회차 실험은 `results/experiments/20261113-r02-base/`(기본값의 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
 
 ## 폴더 구조
 
@@ -191,11 +213,15 @@ denoiser/
 tools/
   check_io.py           입출력 규칙 검사
   evaluate.py           Train / Validation SNR / PESQ 평가 (--set 으로 설정 덮어쓰기)
-  compare_runs.py       두 평가 결과의 짝지은 검정, 잡음 종류·SNR별 비교
+  compare_runs.py       두 평가 결과의 대응 부트스트랩·Wilcoxon, 잡음 종류·SNR별 비교, 채택 조건 점검
+  baseline_summary.py   기준 결과 통계 요약 (summary.md)
   plot_spectrograms.py  고정 청취 목록의 스펙트로그램
+  make_ab_listening.py  블라인드 A/B 청취 세트 생성
+tests/                  회귀 테스트 (unittest) 와 참조값 (tests/data/)
 requirements.txt        실행에 필요한 패키지
 requirements-eval.txt   평가에만 필요한 패키지
 input/  output/         테스트 입력 / 결과 폴더
+listening/              청취 세트 (로컬 전용, .gitignore)
 ```
 
 ## 참고 문헌
