@@ -1,0 +1,20 @@
+{
+  "base": "results\\experiments\\20261113-r02-base\\lowcut-off\\validation",
+  "new": "results\\experiments\\20261113-r02-base\\validation",
+  "split": "validation",
+  "snr_weighted_mean": {
+    "pesq": {
+      "base": 1.6132596402659276,
+      "new": 1.6800581915256956
+    },
+    "snr": {
+      "base": 12.106745755181889,
+      "new": 3.627128264667749
+    }
+  },
+  "checks": {
+    "validation_mean_not_lower": true,
+    "validation_snr_>=3.8": true
+  },
+  "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
+}

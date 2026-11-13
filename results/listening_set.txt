@@ -11,3 +11,18 @@ speaker007_utt01_seg0008,aircraft_cockpit,5
 speaker007_utt01_seg0011,broadband_noise,15
 speaker007_utt02_seg0014,traffic_vehicle,10
 speaker016_utt01_seg0004,clap,15
+# Added 2026-11-13 for round 02 (step 0): weak noise types of the round-01 stack, more 0 dB
+# files, and the 3 Validation files hurt most by the 325 Hz low cut (r02-base vs
+# wind_module=false: speaker037_utt01_seg0006 -0.46, speaker037_utt02_seg0009 -0.34,
+# speaker037_utt01_seg0017 -0.28). First segment_id per type unless noted.
+speaker037_utt01_seg0006,traffic_vehicle,15
+speaker037_utt01_seg0013,traffic_vehicle,5
+speaker007_utt02_seg0003,water,15
+speaker015_utt01_seg0011,vehicle_interior,5
+speaker037_utt01_seg0012,bell,10
+speaker037_utt02_seg0015,animal,10
+speaker007_utt01_seg0001,alarm_siren,5
+speaker016_utt01_seg0006,aircraft_cockpit,0
+speaker040_utt01_seg0009,alarm_siren,0
+speaker037_utt02_seg0009,machine,15
+speaker037_utt01_seg0017,machine,15
