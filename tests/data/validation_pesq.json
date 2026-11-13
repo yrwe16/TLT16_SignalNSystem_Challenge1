@@ -1,5 +1,5 @@
 {
-  "source": "results/experiments/20261113-r02-base/validation/validation_per_file.csv (round-02 base: phase reconstruction and 325 Hz low cut off)",
+  "source": "results/experiments/20261113-r02-base-s1/validation/validation_per_file.csv (round-02 base after step R2-1: band_floor on)",
   "tolerance": 0.001,
   "files": [
     {
@@ -8,7 +8,7 @@
       "target_snr_db": 0.0,
       "noisy_path": "validation/noisy/speaker007_utt02_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt02_seg0011.wav",
-      "pesq_wb": 1.081498
+      "pesq_wb": 1.137727
     },
     {
       "segment_id": "speaker015_utt01_seg0008",
@@ -16,7 +16,7 @@
       "target_snr_db": 5.0,
       "noisy_path": "validation/noisy/speaker015_utt01_seg0008_noisy.wav",
       "clean_path": "validation/clean/speaker015_utt01_seg0008.wav",
-      "pesq_wb": 1.377924
+      "pesq_wb": 1.604782
     },
     {
       "segment_id": "speaker007_utt01_seg0003",
@@ -24,7 +24,7 @@
       "target_snr_db": 10.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0003_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0003.wav",
-      "pesq_wb": 1.574002
+      "pesq_wb": 1.581244
     },
     {
       "segment_id": "speaker007_utt01_seg0008",
@@ -32,7 +32,7 @@
       "target_snr_db": 5.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0008_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0008.wav",
-      "pesq_wb": 1.297887
+      "pesq_wb": 1.421479
     },
     {
       "segment_id": "speaker007_utt01_seg0011",
@@ -40,7 +40,7 @@
       "target_snr_db": 15.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0011.wav",
-      "pesq_wb": 1.472242
+      "pesq_wb": 1.639186
     }
   ]
 }
