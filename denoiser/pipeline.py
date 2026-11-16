@@ -13,6 +13,7 @@ from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frame
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
                                tracked_noise, transient_noise)
+from .masking import masking_floor, speech_frames
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
 
@@ -38,6 +39,26 @@ def tonal_f0(x, sample_rate, times, cfg):
     centers = np.rint(times * sample_rate).astype(int)
     f0, voiced = yin_f0(first, sample_rate, centers, cfg)
     return smooth_track(f0, voiced, cfg)
+
+
+def apply_masking_floor(x, sample_rate, z, enhanced, noise, band, times, n_fft, hop, cfg):
+    """Round-02 step 8: raise the gain floor in speech frames from the masking threshold of the
+    first-pass output (the same pipeline with masking off, re-analysed with the same STFT); see
+    masking.py. Gains in other frames, and bins whose gain is already above the new floor, are
+    left exactly as they are."""
+    first = denoise_signal(x, sample_rate, replace(cfg, masking=False))
+    _, _, s1 = stft(first, sample_rate, n_fft, hop)
+    power = np.abs(z) ** 2
+    noise_tf = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, z.shape)
+    speech = speech_frames(power, noise_tf, cfg.masking_frame_snr_db)
+    base = cfg.lsa_gain_floor if band is None else band[0]
+    floor = masking_floor(np.abs(s1) ** 2, noise_tf, speech, base, sample_rate, n_fft, cfg)
+    gain = np.abs(enhanced) / np.maximum(np.abs(z), 1e-30)
+    # speech frames only; the 1e-9 margin ignores the rounding of |G Y| / |Y| at the base floor
+    raise_ = speech[None, :] & (floor > gain * (1 + 1e-9))
+    apply_masking_floor.speech = speech
+    apply_masking_floor.raised = raise_
+    return np.where(raise_, floor * z, enhanced)
 
 
 def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
@@ -95,6 +116,9 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         enhanced = lsa_decision_directed(z, noise, cfg.lsa_smoothing, cfg.lsa_gain_floor)
     else:
         enhanced = wiener_decision_directed(z, noise, cfg.wiener_smoothing, cfg.wiener_gain_floor)
+    if cfg.masking:
+        enhanced = apply_masking_floor(x, sample_rate, z, enhanced, noise, band, times, n_fft, hop,
+                                       cfg)
     if cfg.postfilter:
         magnitude = np.abs(z)
         gain = np.abs(enhanced) / np.maximum(magnitude, 1e-30)

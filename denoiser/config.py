@@ -226,6 +226,15 @@ class Config:
     # Wiener etc.). Our choices: one-sided bins, reflected edges, round half up, gains limited
     # to 1 before smoothing (LSA gains can exceed 1), and neither the frame's mean squared gain
     # nor its output energy sum |G Y|^2 is allowed to rise (scaled back if it does).
+    # Round-02 step 8, masking: raise the LSA floor in speech frames up to the level where the
+    # residual noise meets the auditory masking threshold of the first-pass output (Virag, IEEE
+    # TSAP 7(2), 1999, read in the original; see masking.py). Offset (dB shift of the threshold),
+    # range (max raise above the base floor) and the speech-frame test are our choices.
+    masking: bool = False
+    masking_offset_db: float = 0.0
+    masking_range_db: float = 6.0
+    masking_frame_snr_db: float = 10.0   # speech frame: posterior frame SNR (our choice)
+
     postfilter: bool = False
     postfilter_zeta_thr: float = 0.4
     postfilter_psi: int = 10
@@ -324,6 +333,8 @@ class Config:
             raise ValueError("Invalid noise estimate parameters.")
         if self.snr_adaptive and (not self.band_floor or not 0 <= self.snr_adapt_start_db < 15):
             raise ValueError("snr_adaptive needs band_floor and snr_adapt_start_db in [0, 15).")
+        if self.masking_range_db < 0:
+            raise ValueError("masking needs masking_range_db >= 0.")
         if not 0 < self.postfilter_zeta_thr <= 1 or self.postfilter_psi < 0:
             raise ValueError("postfilter needs zeta_thr in (0, 1] and psi >= 0.")
         if not 0 < self.pcm_peak_limit <= 1:
