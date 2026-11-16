@@ -59,6 +59,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 
 1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
 2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 시작값으로 씁니다. 2회차부터는 이를 +2 dB 올린 값에서 출발해, 셀마다 음성이 없을 확률 $P(H_0) = 1 - \big[1 + (1+\xi_{H1})\,e^{-\gamma\,\xi_{H1}/(1+\xi_{H1})}\big]^{-1}$ ($\xi_{H1}$ = 10 dB, Gerkmann & Hendriks 2012)로 가중한 평균 $\sigma^2(k) = \sum_t P(H_0)|Y|^2 / \sum_t P(H_0)$을 3번 반복해 구하고 주파수 방향으로 3-bin 평활화합니다 (파일마다 하나의 값; 2회차 2단계).
+   **협대역 음 (2회차 7단계):** 경보·사이렌·종소리처럼 오래 이어지는 협대역 성분을 프레임마다 추적해(기울기 ±2 kHz/s 이내, 300 ms 이상), 그 궤적과 정수배에서 확인된 피크 주변 ±2 bin의 관측 파워를 잡음 추정에 더합니다. 음성 하모닉을 잘못 잡지 않도록 1차 출력의 YIN f0 배수 ±1 bin을 제외하고, 무성음·묵음 프레임에서도 이어지는 궤적(비율 0.5 이상)만 쓰며, 400 Hz 아래는 찾지 않습니다 (음성 기본 주파수 대역의 오탐 방지, 우리 선택).
 3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리).
 4. **이득 (단계 1):** MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985).
 5. **저역 차단 (단계 6):** 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한합니다 (바람·기계 등 저역 잡음). 1회차 제출본에는 켜져 있고(`wind_module`), 2회차부터는 이를 일반화한 **대역별 최소 이득**(`band_floor`)으로 바꿨습니다: 325 Hz 아래는 출력을 Noisy 입력 대비 −25 dB 이하로 제한하고, 경계 2 bin에 걸쳐 부드럽게 잇습니다 (2회차 1단계, 팀 채택).
@@ -79,7 +80,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd_bidir` (정·역방향 DD 평균) | `prior_snr`, `ceps_*`, `ml2d_*` |
 | 유성음 위상 복원 | 1회차: 켬 (주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임) / 2회차 기본값: 끔 | `phase_reconstruction`, `phase_*` |
-| 협대역 음 모듈 | 끔 (단계 6a 실험, 미채택) | `tonal_module`, `tonal_*` |
+| 협대역 음 모듈 | 켬 (2회차 7단계 채택): `r02` 추적기, 400 Hz–7.8 kHz, 피크 8 dB, 기울기 ±2 kHz/s, 300 ms 이상, 무성음 프레임 비율 0.5 이상, YIN f0 배수 ±1 bin 제외 (단계 6a 추적기는 `tonal_mode="6a"`로 유지) | `tonal_module`, `tonal_*` |
 | 저역 차단 (바람) | 1회차: 켬, 325 Hz / 2회차 기본값: 끔 | `wind_module`, `wind_cutoff_hz` |
 | 대역별 최소 이득 | 켬 (2회차 기본값): 325 Hz 아래 −25 dB, 1–4 kHz·4 kHz 위 LSA 하한 −15 dB, 경계 2 bin 평활 | `band_floor`, `band_*` |
 | RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
@@ -148,6 +149,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | R2-4b | R2-2 + SNR에 따른 최소 이득 (12 dB부터, 15 dB에서 −12 dB) | 1.948 | | | 미채택 (Train −0.0004, 4개 후보 모두 기준 미만) |
 | R2-5 | LSA → generalized gamma 사전분포 진폭 추정기 (Erkelens 외 2007) | 1.921 | | | 미채택 (12개 후보 모두 기준 미만, 최고 −0.027). 논문 권장 초가우시안 설정일수록 나쁘고 LSA에 가까울수록 나음 |
 | R2-6 | 음악성 잡음 후처리: 저 SNR 프레임 이득의 주파수 방향 적응 평활 (Esch & Vary 2009) | 1.949 | | | 미채택 (최고 +0.0004, 6개 후보). 평활 폭이 넓을수록 나쁨 |
+| R2-7 | R2-2 + 협대역 음 모듈 개선 (YIN f0 배수 제외, 무성음 구간 지속, 프레임별 추적 ±2 kHz/s, 정수배, 400 Hz 이상; 피크 8 dB, 무성음 비율 0.5) | 1.954 | 1.895 | 2.48 | 채택 (2026-11-16 팀 결정 규칙: Train·Validation 모두 기준 초과), 청취 확인 대기. Train +0.0053 (95 % 구간 0.003–0.008), Validation +0.0078 (0.003–0.014). 깨끗한 음성 오탐 0.59 % → 0.05 %. 경보 Train +0.023 / Validation −0.005, 교통 +0.032 / +0.079. 기존 조건 1(+0.01)은 실패. 새 기준 `20261116-r02-base-s3` |
 
 ### 로드맵 결과 요약
 
@@ -206,7 +208,7 @@ python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening
     --a "기준" --b "새:wind_module=false"
 ```
 
-2회차 실험은 현재 기본값의 결과인 `results/experiments/20261113-r02-base-s2/`(2단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
+2회차 실험은 현재 기본값의 결과인 `results/experiments/20261116-r02-base-s3/`(7단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
 
 ### 2회차 채택 조건
 
@@ -216,6 +218,8 @@ python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening
 2. **Validation:** 후보 하나만 단계당 한 번 평가합니다. 평균이 기준보다 0.005 넘게 떨어지지 않고 Train과 방향이 같아야 합니다.
 3. **회귀 없음 (Train):** 파일 10개 이상인 잡음 종류가 0.1 넘게, SNR 구간(0/5/10/15 dB)이 0.02 넘게 떨어지지 않음.
 4. **청취:** 블라인드 A/B 세트(`tools/make_ab_listening.py`)로 팀이 확인합니다. 결과가 나오기 전에는 실험 표에 "청취 확인 대기"로 적습니다.
+
+**7단계부터 (팀 결정, 2026-11-16):** Train 평균과 Validation 평균 PESQ-WB가 **모두 기준보다 높으면** 채택합니다 (결과 선택은 PESQ가 높은 쪽). 위 1–3번은 계속 계산해 함께 보고하지만 채택을 막지 않습니다. 6단계까지의 판정은 바꾸지 않습니다.
 
 SNR은 매 단계 보고하지만 채택 조건에는 넣지 않습니다 (팀 결정, 2026-11-13; 순위 지표는 PESQ-WB). `compare_runs.py --snr-drop <dB>`로 SNR 점검을 다시 켤 수 있습니다.
 
@@ -263,6 +267,9 @@ listening/              청취 세트 (로컬 전용, .gitignore)
 - P.-S. Huang, S. D. Chen, P. Smaragdis, and M. Hasegawa-Johnson, "Singing-voice separation from monaural recordings using robust principal component analysis," *Proc. IEEE ICASSP*, pp. 57–60, 2012, DOI 10.1109/ICASSP.2012.6287816. (단계 6c, 크기 스펙트로그램에 RPCA 적용)
 - D. FitzGerald, "Harmonic/percussive separation using median filtering," *Proc. DAFx*, 2010. (단계 6d, 미채택; DOI 없음, 상수 미대조)
 - R. Talmon, I. Cohen, and S. Gannot, "Transient noise reduction using nonlocal diffusion filters," *IEEE Transactions on Audio, Speech, and Language Processing*, vol. 19, no. 6, pp. 1584–1599, 2011, DOI 10.1109/TASL.2010.2093651. (단계 6d 배경)
+- J. S. Erkelens, R. C. Hendriks, R. Heusdens, and J. Jensen, "Minimum Mean-Square Error Estimation of Discrete Fourier Coefficients With Generalized Gamma Priors," *IEEE Transactions on Audio, Speech, and Language Processing*, vol. 15, no. 6, pp. 1741–1752, 2007, DOI 10.1109/TASL.2007.899233. (2회차 5단계, 미채택; 원문 확인)
+- T. Esch and P. Vary, "Efficient musical noise suppression for speech enhancement systems," *Proc. IEEE ICASSP*, pp. 4409–4412, 2009. (2회차 6단계, 미채택; 원문 확인)
+- Y. Gül, A. M. Ariyaeeinia, and O. Dewhirst, "A new approach to reducing alarm noise in speech," *Proc. Eurospeech*, 2003, DOI 10.21437/Eurospeech.2003-393. (2회차 7단계 배경, 원문 확인; 논문의 LP 기반 필터는 쓰지 않음)
 - R. J. McAulay and T. F. Quatieri, "Speech analysis/synthesis based on a sinusoidal representation," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 34, no. 4, pp. 744–754, 1986, DOI 10.1109/TASSP.1986.1164910. (단계 6 피크 궤적 연결 방식, 미채택; 상수는 자체 설정)
 - 단계 3의 음성 부재 확률 상수와 OM-LSA decision-directed 방식: chenwj1989/python-speech-enhancement `pns/suppression_gain.py` (커밋 f38fde7, BSD-3, Copyright (c) 2019 wjchen)를 읽고 직접 구현.
 - 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).
