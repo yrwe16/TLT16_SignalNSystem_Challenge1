@@ -166,6 +166,18 @@ class Config:
     transient_module: bool = False
     transient_margin: float = 2.0
     transient_frame_share: float = 0.3
+    # Round-02 step 9, transient_mode="two_stage" (with transient_module=True): short-frame
+    # transient PSD after Hirszhorn, Dov, Talmon & Cohen, IWAENC 2012 (read in the original):
+    # 64-sample frames, alpha_s 0.7, 40 ms anti-causal minimum (paper); causal window 0.2 s,
+    # delta, bin share and the file gate are our choices (the paper gives no L or delta).
+    transient_mode: str = "6d"
+    transient_short_n: int = 64
+    transient_alpha_s: float = 0.7
+    transient_causal_s: float = 0.2
+    transient_anticausal_s: float = 0.04
+    transient_delta: float = 4.0
+    transient_bin_share: float = 0.5
+    transient_file_index: float = 0.02
 
     # Round-02 step 1, band-dependent gain floor (generalizes wind_module): bands
     # [0, band_cutoff_hz), [cutoff, 1 kHz), [1, 4 kHz), [4 kHz, fs/2]. Below the cutoff the
@@ -314,6 +326,11 @@ class Config:
         if (self.rpca_combine not in ("replace", "max") or self.rpca_lambda_scale <= 0
                 or self.rpca_max_iter < 1 or self.wind_cutoff_hz <= 0
                 or self.transient_margin <= 0 or not 0 <= self.transient_frame_share <= 1):
+            raise ValueError("Invalid transient module parameters.")
+        if (self.transient_mode not in ("6d", "two_stage") or self.transient_short_n < 8
+                or not 0 <= self.transient_alpha_s < 1 or self.transient_causal_s <= 0
+                or self.transient_anticausal_s <= 0 or self.transient_delta <= 1
+                or not 0 < self.transient_bin_share <= 1 or not 0 <= self.transient_file_index <= 1):
             raise ValueError("Invalid stage-6 module parameters.")
         if self.band_floor and (self.gain_rule not in ("lsa", "gg") or self.prior_snr != "dd_bidir"
                                 or self.wind_module):

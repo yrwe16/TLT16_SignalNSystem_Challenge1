@@ -444,3 +444,71 @@ def file_snr_features(z, noise, sample_rate, n_fft, cutoff_hz):
     return {"snr_lowband_db": db(clean_est[low].sum(), noise_tf[low].sum()),
             "snr_file_db": db(clean_est.sum(), noise_tf.sum()),
             "lowband_energy_ratio_db": db(power[low].sum(), power.sum())}
+
+
+def _window_min(values, length, causal):
+    """Minimum over the last (causal) or next (anti-causal) `length` frames, edges excluded."""
+    from numpy.lib.stride_tricks import sliding_window_view
+    pad = [(0, 0), (length - 1, 0)] if causal else [(0, 0), (0, length - 1)]
+    padded = np.pad(values, pad, constant_values=np.inf)
+    return sliding_window_view(padded, length, axis=1).min(axis=-1)
+
+
+def two_stage_transient(x, sample_rate, long_shape, n_fft, hop, cfg, stationary=None):
+    """Round-02 step 9: transient PSD from a short-frame analysis (transient_mode="two_stage").
+
+    A. Hirszhorn, D. Dov, R. Talmon, I. Cohen, "Transient interference suppression in speech
+    signals based on the OM-LSA algorithm", IWAENC 2012 (read in the original), Sec. 3.1:
+    short STFT frames (64 samples = 4 ms at 16 kHz, 75 % overlap), smoothed periodogram
+    S = a_s S(l-1) + (1 - a_s)|Y|^2 with a_s = 0.7 (eq. 5), causal minimum over L frames
+    (eq. 6), anti-causal minimum over T = 40 ms (eq. 12), S_min = max of the two (eq. 13),
+    transient where S / S_min > delta (eqs. 7-8). The paper gives no values for L and delta.
+    Simplified (as the team asked): no first-stage OM-LSA; the transient power is the excess
+    S - S_min on flagged cells (our choice), mapped to the long STFT by averaging the short
+    frames under the long window (Hann^2 weights) and interpolating over frequency, scaled
+    by n_short / n_long (scipy's STFT normalisation; our choice). The caller adds it to the
+    stationary estimate for the LSA (the paper's OM-LSA is not used). File gate (our choice):
+    a short frame is transient when at least transient_bin_share of its bins are flagged; the
+    module acts only if the share of such frames is >= transient_file_index.
+    Team decision 11-16 after the first measurement (S / S_min > delta flagged 8-34 % of the
+    frames of ordinary files: 4 ms periodograms smoothed with a_s 0.7 fluctuate strongly): the
+    reference level is max(S_min, stationary noise PSD mapped to the short grid) (our choice),
+    so fluctuations of stationary noise are not taken as transients; the excess is measured
+    from that reference.
+    Returns (transient PSD on the long grid or None when gated off, transience index)."""
+    from scipy.signal import lfilter
+    from .stft import stft
+    n_s = cfg.transient_short_n
+    hop_s = max(1, n_s // 4)
+    _, t_s, zs = stft(x, sample_rate, n_s, hop_s)
+    p = np.abs(zs) ** 2
+    a = cfg.transient_alpha_s
+    s, _ = lfilter([1 - a], [1, -a], p, axis=1, zi=a * p[:, :1])
+    frame_s = hop_s / sample_rate
+    causal = _window_min(s, max(1, int(round(cfg.transient_causal_s / frame_s))), True)
+    ahead = _window_min(s, max(1, int(round(cfg.transient_anticausal_s / frame_s))), False)
+    s_min = np.maximum(causal, ahead)
+    f_s = np.arange(p.shape[0]) * sample_rate / n_s
+    if stationary is not None:
+        f_long = np.arange(len(stationary)) * sample_rate / n_fft
+        floor = np.interp(f_s, f_long, stationary) * (n_fft / n_s)   # long -> short scaling
+        s_min = np.maximum(s_min, floor[:, None])
+    flag = s > cfg.transient_delta * np.maximum(s_min, 1e-30)
+    frames = flag.mean(axis=0) >= cfg.transient_bin_share
+    index = float(frames.mean())
+    if index < cfg.transient_file_index:
+        return None, index
+    excess = np.where(flag & frames[None, :], np.maximum(s - s_min, 0.0), 0.0)
+    # time: weighted mean of the short frames under each long analysis window
+    n_bins_l, n_frames_l = long_shape
+    t_l = np.arange(n_frames_l) * hop / sample_rate
+    half = n_fft / (2 * sample_rate)
+    d = (t_s[None, :] - t_l[:, None]) / half                          # in (-1, 1) inside
+    w = np.where(np.abs(d) < 1, np.cos(0.5 * np.pi * d) ** 4, 0.0)    # Hann^2 of the long window
+    w /= np.maximum(w.sum(axis=1, keepdims=True), 1e-30)
+    per_frame = excess @ w.T                                          # (short bins, long frames)
+    f_l = np.arange(n_bins_l) * sample_rate / n_fft
+    out = np.empty((n_bins_l, n_frames_l))
+    for j in range(n_frames_l):
+        out[:, j] = np.interp(f_l, f_s, per_frame[:, j])
+    return out * (n_s / n_fft), index

@@ -12,7 +12,7 @@ from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
-                               tracked_noise, transient_noise)
+                               tracked_noise, transient_noise, two_stage_transient)
 from .masking import masking_floor, speech_frames
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
@@ -89,6 +89,7 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
     n_fft, hop = cfg.stft_sizes(sample_rate)
     _, times, z = stft(x, sample_rate, n_fft, hop)
     noise = estimate_noise_psd(z, times, len(x), sample_rate, n_fft, hop, cfg)
+    stationary = noise
     if cfg.tonal_module:
         f0_voiced = None
         if cfg.tonal_mode == "r02":
@@ -96,7 +97,14 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         noise = add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg, f0_voiced)
     if cfg.rpca_module:
         noise = rpca_noise(noise, z, cfg)
-    if cfg.transient_module:
+    if cfg.transient_module and cfg.transient_mode == "two_stage":
+        extra, index = two_stage_transient(x, sample_rate, z.shape, n_fft, hop, cfg,
+                                           stationary if stationary.ndim == 1 else None)
+        denoise_signal.transient_index = index
+        if extra is not None:
+            base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, z.shape)
+            noise = base + extra
+    elif cfg.transient_module:
         noise = transient_noise(noise, z, cfg)
     band = band_floor_profile(z.shape[0], sample_rate, n_fft, cfg) if cfg.band_floor else None
     if cfg.snr_adaptive and band is not None:
