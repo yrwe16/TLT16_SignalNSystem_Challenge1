@@ -1,0 +1,210 @@
+{
+  "split": "train",
+  "files": 1296,
+  "speech_db": 25.0,
+  "zeta_percentiles": [
+    5,
+    25,
+    50,
+    75,
+    95
+  ],
+  "zeta_speech": [
+    0.1047,
+    0.5026,
+    0.8022,
+    0.9316,
+    0.9839
+  ],
+  "zeta_pause": [
+    0.0356,
+    0.0573,
+    0.104,
+    0.2615,
+    0.7415
+  ],
+  "speech_frames": 388733,
+  "pause_frames": 98563,
+  "fraction_below": {
+    "0.05": {
+      "speech": 0.012509871814330144,
+      "pause": 0.18517090591804228
+    },
+    "0.1": {
+      "speech": 0.047487607175104765,
+      "pause": 0.48737355802887494
+    },
+    "0.2": {
+      "speech": 0.09663445089560187,
+      "pause": 0.6837454217099723
+    },
+    "0.3": {
+      "speech": 0.1433168781657333,
+      "pause": 0.7813073871533943
+    },
+    "0.4": {
+      "speech": 0.1930502427115784,
+      "pause": 0.843602568915313
+    },
+    "0.5": {
+      "speech": 0.24845845348864132,
+      "pause": 0.8862149082312836
+    }
+  },
+  "settings": {
+    "thr0.4_psi1": {
+      "max_window": 3,
+      "smoothed_speech_frac": 0.09663445089560187,
+      "smoothed_pause_frac": 0.6837454217099723,
+      "max_delta_db_speech": 12.419811692244702,
+      "median_file_max_delta_db_speech": 10.41977161095057,
+      "mean_delta_db_speech": 0.17664998651336386,
+      "max_energy_db_speech": 3.8262314218437647,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        1.229
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        1.026
+      ]
+    },
+    "thr0.4_psi3": {
+      "max_window": 7,
+      "smoothed_speech_frac": 0.15925069392102034,
+      "smoothed_pause_frac": 0.804652861621501,
+      "max_delta_db_speech": 18.54563378319952,
+      "median_file_max_delta_db_speech": 11.654303052423664,
+      "mean_delta_db_speech": 0.3419860591114583,
+      "max_energy_db_speech": 4.467106689453389,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.197,
+        1.844
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        1.697
+      ]
+    },
+    "thr0.4_psi7": {
+      "max_window": 15,
+      "smoothed_speech_frac": 0.17824059187154165,
+      "smoothed_pause_frac": 0.8283230015320151,
+      "max_delta_db_speech": 22.847809048459233,
+      "median_file_max_delta_db_speech": 12.483773117129104,
+      "mean_delta_db_speech": 0.4497320284153473,
+      "max_energy_db_speech": 5.768869388869814,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.261,
+        2.545
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        2.349
+      ]
+    },
+    "thr0.2_psi1": {
+      "max_window": 3,
+      "smoothed_speech_frac": 0.047487607175104765,
+      "smoothed_pause_frac": 0.48737355802887494,
+      "max_delta_db_speech": 12.419811692244702,
+      "median_file_max_delta_db_speech": 8.488733282974401,
+      "mean_delta_db_speech": 0.08742108412251517,
+      "max_energy_db_speech": 1.9534875246582066,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        0.645
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        0.52
+      ]
+    },
+    "thr0.2_psi3": {
+      "max_window": 7,
+      "smoothed_speech_frac": 0.08080353353072675,
+      "smoothed_pause_frac": 0.6377646784290251,
+      "max_delta_db_speech": 17.049644860003877,
+      "median_file_max_delta_db_speech": 10.300852086349455,
+      "mean_delta_db_speech": 0.17116655439462217,
+      "max_energy_db_speech": 2.916289295244514,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        1.164
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        0.981
+      ]
+    },
+    "thr0.2_psi7": {
+      "max_window": 15,
+      "smoothed_speech_frac": 0.08984572958817491,
+      "smoothed_pause_frac": 0.6657467812465124,
+      "max_delta_db_speech": 22.847809048459233,
+      "median_file_max_delta_db_speech": 11.582900129905816,
+      "mean_delta_db_speech": 0.2245188230405816,
+      "max_energy_db_speech": 4.034139309031621,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        1.525
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        1.334
+      ]
+    },
+    "thr0.1_psi1": {
+      "max_window": 3,
+      "smoothed_speech_frac": 0.012509871814330144,
+      "smoothed_pause_frac": 0.18517090591804228,
+      "max_delta_db_speech": 12.419811692244702,
+      "median_file_max_delta_db_speech": 0.0,
+      "mean_delta_db_speech": 0.022726576927145088,
+      "max_energy_db_speech": 0.8743871461523055,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        0.18
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        0.12
+      ]
+    },
+    "thr0.1_psi3": {
+      "max_window": 7,
+      "smoothed_speech_frac": 0.037701970246930415,
+      "smoothed_pause_frac": 0.42315067520266225,
+      "max_delta_db_speech": 16.86527201073555,
+      "median_file_max_delta_db_speech": 0.0,
+      "mean_delta_db_speech": 0.07501967008512635,
+      "max_energy_db_speech": 1.7333079342834166,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        0.507
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        0.402
+      ]
+    },
+    "thr0.1_psi7": {
+      "max_window": 15,
+      "smoothed_speech_frac": 0.04340254107575122,
+      "smoothed_pause_frac": 0.4612988646855311,
+      "max_delta_db_speech": 21.05413209512136,
+      "median_file_max_delta_db_speech": 8.677156973160248,
+      "mean_delta_db_speech": 0.10201190805693398,
+      "max_energy_db_speech": 2.05347383269632,
+      "energy_db_smoothed_speech_p50_p95": [
+        0.0,
+        0.647
+      ],
+      "energy_db_smoothed_pause_p50_p95": [
+        0.0,
+        0.522
+      ]
+    }
+  },
+  "gain_above_one_fraction": 0.05379500240954867
+}
