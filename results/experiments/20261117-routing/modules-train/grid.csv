@@ -1,0 +1,5 @@
+name,overrides,files,pesq,snr_db
+masking,masking=true masking_offset_db=0 masking_range_db=6,1296,1.95405,2.63
+postfilter,postfilter=true postfilter_zeta_thr=0.4 postfilter_psi=3,1296,1.94706,2.631
+tonal_p6,tonal_peak_db=6,1296,1.94657,2.603
+transient6d,transient_module=true,1296,1.90536,2.561
