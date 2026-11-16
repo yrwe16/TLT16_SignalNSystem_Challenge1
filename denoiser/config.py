@@ -94,8 +94,9 @@ class Config:
     # long narrowband peak tracks are added to the noise PSD (tonal_weight x observed power
     # on the track bins). Tracking after McAulay & Quatieri, IEEE TASSP 34(4), 1986; all
     # constants are our own choices.
-    tonal_module: bool = False
-    tonal_peak_db: float = 10.0          # peak must exceed the local spectral median by this
+    # Round-02 step 7 adopted (2026-11-16): tonal_module on in r02 mode, peak 8 dB (6a used 10 dB).
+    tonal_module: bool = True
+    tonal_peak_db: float = 8.0           # peak must exceed the local spectral median by this
     tonal_median_bins: int = 15
     tonal_max_jump_bins: int = 2         # matching interval per frame (8 ms)
     tonal_max_gap_frames: int = 2
@@ -107,6 +108,25 @@ class Config:
     tonal_level: str = "observed"
     tonal_fmin: float = 100.0
     tonal_fmax: float = 7800.0
+    # Round-02 step 7, tonal_mode="r02" (with tonal_module=True): stage-6a tracker revised.
+    # YIN f0 from a first pass of the pipeline without the module (phase_f0_* / phase_yin_*
+    # settings, smooth_track); peaks within tonal_f0_guard_bins of a multiple of f0 in voiced
+    # frames are dropped; frame-to-frame jumps up to tonal_slope_hz_s; tracks must last
+    # tonal_r02_min_seconds and lie in unvoiced frames for at least tonal_unvoiced_min of their
+    # frames; the observed power on the track and on confirmed peaks at its integer multiples
+    # (+-tonal_halfwidth_bins) is added to the noise PSD. All values our choice. Background:
+    # Gul, Ariyaeeinia & Dewhirst, "A new approach to reducing alarm noise in speech",
+    # Eurospeech 2003, DOI 10.21437/Eurospeech.2003-393 (read in the original): alarms are
+    # sinusoids (constant, intermittent, alternate, sweeping) independent of speech; their
+    # LP mean-vector method (eqs. 1-4) is not used here.
+    tonal_mode: str = "r02"
+    tonal_f0_guard_bins: int = 1
+    tonal_slope_hz_s: float = 2000.0
+    tonal_r02_min_seconds: float = 0.3
+    tonal_unvoiced_min: float = 0.5
+    # lower track frequency in r02 mode (our choice, team decision 11-16): speech f0 tracks at
+    # 125-250 Hz that YIN calls unvoiced were the main false detections on clean speech
+    tonal_r02_fmin: float = 400.0
 
     # Phase reconstruction in voiced speech (roadmap stage 5; Krawczyk & Gerkmann, IEEE/ACM
     # TASLP 22(12):1931-1940, 2014). "combi" = along time and frequency (Sec. IV-B),
@@ -267,6 +287,12 @@ class Config:
                 or self.tonal_max_jump_bins < 0 or self.tonal_max_gap_frames < 0
                 or self.tonal_halfwidth_bins < 0 or not 0 <= self.tonal_fmin < self.tonal_fmax):
             raise ValueError("Invalid tonal module parameters.")
+        if (self.tonal_mode not in ("6a", "r02") or self.tonal_f0_guard_bins < 0
+                or self.tonal_slope_hz_s <= 0 or self.tonal_r02_min_seconds <= 0
+                or not 0 <= self.tonal_r02_fmin < self.tonal_fmax
+                or not 0 <= self.tonal_unvoiced_min <= 1
+                or (self.tonal_mode == "r02" and self.tonal_level != "observed")):
+            raise ValueError("Invalid tonal_mode='r02' parameters.")
         if self.tonal_level not in ("observed", "track_median"):
             raise ValueError("tonal_level must be 'observed' or 'track_median'.")
         if self.phase_mode not in ("combi", "frequency"):

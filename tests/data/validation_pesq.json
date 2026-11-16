@@ -1,5 +1,5 @@
 {
-  "source": "results/experiments/20261113-r02-base-s2/validation/validation_per_file.csv (round-02 base after step R2-2: SPP-weighted noise estimate)",
+  "source": "results/experiments/20261116-r02-base-s3/validation/validation_per_file.csv (round-02 base after step R2-7: revised tonal module)",
   "tolerance": 0.001,
   "files": [
     {
@@ -8,7 +8,7 @@
       "target_snr_db": 0.0,
       "noisy_path": "validation/noisy/speaker007_utt02_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt02_seg0011.wav",
-      "pesq_wb": 1.137095
+      "pesq_wb": 1.136935
     },
     {
       "segment_id": "speaker015_utt01_seg0008",

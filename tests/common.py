@@ -23,7 +23,9 @@ WIENER_BASELINE = replace(CONFIG, gain_rule="wiener", prior_snr="dd", wind_modul
                           phase_reconstruction=False, noise_tracker="fixed", omlsa=False,
                           tonal_module=False, rpca_module=False, transient_module=False,
                           postfilter=False)
-CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE}
+# Round-02 base before step 7 (r02-base-s2): the current defaults with the tonal module off.
+R02_S2 = replace(CONFIG, tonal_module=False)
+CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE, "r02_s2": R02_S2}
 
 
 def synthetic_signal(seed=0):

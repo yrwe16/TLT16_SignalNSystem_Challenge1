@@ -155,12 +155,98 @@ def tonal_tracks(power, sample_rate, n_fft, hop_seconds, cfg):
     return mask
 
 
-def add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg):
+def tonal_tracks_r02(power, f0, voiced, sample_rate, n_fft, hop_seconds, cfg):
+    """Round-02 step 7: revised narrowband tracker; boolean mask (bins, frames).
+
+    Differences from tonal_tracks (6a), all our choices (background: Gul, Ariyaeeinia &
+    Dewhirst, Eurospeech 2003, read in the original; alarms as sinusoids that continue
+    independently of speech; their LP-based filter is not used):
+    1. in voiced frames, peaks within tonal_f0_guard_bins of a multiple of the YIN f0 are
+       dropped (speech harmonics);
+    2. a peak continues a track if it lies within tonal_slope_hz_s x elapsed time (at least
+       one bin) of the track's last bin, i.e. the track follows sweeps frame by frame;
+    3. tracks are kept if they last tonal_r02_min_seconds and at least tonal_unvoiced_min of
+       their frames are unvoiced or silent (YIN), i.e. they continue outside speech;
+    0. peaks are searched from tonal_r02_fmin (400 Hz) instead of tonal_fmin;
+    4. the mask covers +-tonal_halfwidth_bins around each track point and around confirmed
+       peaks (+-1 bin) at the integer multiples of its frequency, up to tonal_fmax.
+    Returns (mask, list of kept tracks as [(frame, bin), ...])."""
+    from scipy.ndimage import median_filter
+    bins, frames = power.shape
+    df = sample_rate / n_fft
+    freqs = np.arange(bins) * df
+    band = (freqs >= cfg.tonal_r02_fmin) & (freqs <= cfg.tonal_fmax)
+    local = median_filter(power, size=(cfg.tonal_median_bins, 1), mode="nearest")
+    ratio = 10 ** (cfg.tonal_peak_db / 10)
+    is_peak = np.zeros_like(power, dtype=bool)
+    is_peak[1:-1] = (power[1:-1] > power[:-2]) & (power[1:-1] >= power[2:])
+    is_peak &= (power > ratio * local) & band[:, None]
+    g = cfg.tonal_f0_guard_bins
+    for t in np.flatnonzero(voiced):
+        if f0[t] <= 0:
+            continue
+        centres = np.rint(np.arange(f0[t], cfg.tonal_fmax + f0[t], f0[t]) / df).astype(int)
+        for c in centres:
+            is_peak[max(c - g, 0):c + g + 1, t] = False
+
+    step = cfg.tonal_slope_hz_s * hop_seconds / df    # bins per frame
+    active, finished = [], []
+    for t in range(frames):
+        peaks = list(np.flatnonzero(is_peak[:, t]))
+        still = []
+        for track in sorted(active, key=lambda tr: -len(tr[2])):
+            elapsed = t - track[1]
+            if elapsed > cfg.tonal_max_gap_frames + 1:
+                finished.append(track)
+                continue
+            if peaks:
+                distances = np.abs(np.array(peaks) - track[0])
+                j = int(np.argmin(distances))
+                if distances[j] <= max(1.0, step * elapsed):
+                    k = peaks.pop(j)
+                    track[0], track[1] = k, t
+                    track[2].append((t, k))
+            still.append(track)
+        active = still + [[k, t, [(t, k)]] for k in peaks]
+    finished.extend(active)
+
+    mask = np.zeros_like(power, dtype=bool)
+    min_frames = cfg.tonal_r02_min_seconds / hop_seconds
+    w = cfg.tonal_halfwidth_bins
+    top = min(int(cfg.tonal_fmax / df), bins - 1)
+    kept = []
+    for _, _, points in finished:
+        if points[-1][0] - points[0][0] + 1 < min_frames:
+            continue
+        unvoiced = np.mean([not voiced[t] for t, _ in points])
+        if unvoiced < cfg.tonal_unvoiced_min:
+            continue
+        kept.append(points)
+        for t, k in points:
+            mask[max(k - w, 0):k + w + 1, t] = True
+            m = 2
+            while m * k <= top:
+                c = int(round(m * k))
+                near = np.flatnonzero(is_peak[max(c - 1, 0):c + 2, t])
+                if len(near):
+                    p = max(c - 1, 0) + near[0]
+                    mask[max(p - w, 0):p + w + 1, t] = True
+                m += 1
+    return mask, kept
+
+
+def add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg, f0_voiced=None):
     """Noise PSD per frame: the background estimate plus the observed power on tonal tracks."""
     power = np.abs(z) ** 2
     base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, power.shape)
-    mask = tonal_tracks(power, sample_rate, n_fft, hop / sample_rate, cfg)
+    if cfg.tonal_mode == "r02":
+        mask, kept = tonal_tracks_r02(power, *f0_voiced, sample_rate, n_fft, hop / sample_rate,
+                                      cfg)
+        add_tonal_noise.tracks = kept
+    else:
+        mask = tonal_tracks(power, sample_rate, n_fft, hop / sample_rate, cfg)
     add_tonal_noise.share = float(mask.mean())
+    add_tonal_noise.mask = mask
     if cfg.tonal_level == "track_median":
         tonal = np.minimum(tonal_tracks.level, power)
     else:  # "observed": all power on the track bins counts as noise

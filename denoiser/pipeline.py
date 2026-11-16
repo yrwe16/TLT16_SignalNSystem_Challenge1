@@ -1,5 +1,6 @@
 """Signal-, file- and folder-level noise reduction."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,17 @@ def snr_adaptive_offset_db(snr_hat_db, cfg):
         return 0.0
     full_offset = cfg.snr_adapt_floor15_db - cfg.band_mid_floor_db
     return full_offset * (snr - cfg.snr_adapt_start_db) / (15.0 - cfg.snr_adapt_start_db)
+
+
+def tonal_f0(x, sample_rate, times, cfg):
+    """Round-02 step 7: YIN f0 per STFT frame for the tonal module, independent of the phase
+    stage. YIN runs on a first pass of the same pipeline without the tonal module (and
+    without phase reconstruction), then the offline smooth_track. Our choice."""
+    first = denoise_signal(x, sample_rate, replace(cfg, tonal_module=False,
+                                                   phase_reconstruction=False))
+    centers = np.rint(times * sample_rate).astype(int)
+    f0, voiced = yin_f0(first, sample_rate, centers, cfg)
+    return smooth_track(f0, voiced, cfg)
 
 
 def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
@@ -57,7 +69,10 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
     _, times, z = stft(x, sample_rate, n_fft, hop)
     noise = estimate_noise_psd(z, times, len(x), sample_rate, n_fft, hop, cfg)
     if cfg.tonal_module:
-        noise = add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg)
+        f0_voiced = None
+        if cfg.tonal_mode == "r02":
+            f0_voiced = tonal_f0(x, sample_rate, times, cfg)
+        noise = add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg, f0_voiced)
     if cfg.rpca_module:
         noise = rpca_noise(noise, z, cfg)
     if cfg.transient_module:
