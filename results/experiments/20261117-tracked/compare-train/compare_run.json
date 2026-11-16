@@ -1,0 +1,22 @@
+{
+  "base": "results\\experiments\\20261116-r02-base-s3\\train",
+  "new": "results\\experiments\\20261117-tracked\\grid-full\\t0.3_s10_f-200",
+  "split": "train",
+  "snr_weighted_mean": {
+    "pesq": {
+      "base": 1.8330729872320304,
+      "new": 1.8349410322652233
+    },
+    "snr": {
+      "base": 2.52585524877173,
+      "new": 2.4791324267253962
+    }
+  },
+  "checks": {
+    "train_mean_+0.01": false,
+    "train_ci_above_0": false,
+    "no_type_n>=10_down_>0.1": true,
+    "no_snr_bin_down_>0.02": true
+  },
+  "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
+}

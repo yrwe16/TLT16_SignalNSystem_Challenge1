@@ -1,0 +1,13 @@
+name,overrides,files,pesq,snr_db
+t0.1_s10_f-200,noise_estimator=tracked_protected tracked_tau_s=0.1 tracked_frame_snr_db=10 tracked_floor_db=-200,350,1.99402,2.62
+t0.1_s6_f-200,noise_estimator=tracked_protected tracked_tau_s=0.1 tracked_frame_snr_db=6 tracked_floor_db=-200,350,1.99193,2.617
+t0.3_s10_f-200,noise_estimator=tracked_protected tracked_tau_s=0.3 tracked_frame_snr_db=10 tracked_floor_db=-200,350,1.99046,2.635
+t0.3_s6_f-200,noise_estimator=tracked_protected tracked_tau_s=0.3 tracked_frame_snr_db=6 tracked_floor_db=-200,350,1.98963,2.636
+t1.0_s6_f-200,noise_estimator=tracked_protected tracked_tau_s=1.0 tracked_frame_snr_db=6 tracked_floor_db=-200,350,1.98342,2.649
+t1.0_s10_f-200,noise_estimator=tracked_protected tracked_tau_s=1.0 tracked_frame_snr_db=10 tracked_floor_db=-200,350,1.98318,2.648
+t0.1_s10_f0,noise_estimator=tracked_protected tracked_tau_s=0.1 tracked_frame_snr_db=10 tracked_floor_db=0,350,1.97786,2.661
+t0.1_s6_f0,noise_estimator=tracked_protected tracked_tau_s=0.1 tracked_frame_snr_db=6 tracked_floor_db=0,350,1.97689,2.66
+t0.3_s10_f0,noise_estimator=tracked_protected tracked_tau_s=0.3 tracked_frame_snr_db=10 tracked_floor_db=0,350,1.97646,2.659
+t0.3_s6_f0,noise_estimator=tracked_protected tracked_tau_s=0.3 tracked_frame_snr_db=6 tracked_floor_db=0,350,1.97624,2.658
+t1.0_s10_f0,noise_estimator=tracked_protected tracked_tau_s=1.0 tracked_frame_snr_db=10 tracked_floor_db=0,350,1.97579,2.657
+t1.0_s6_f0,noise_estimator=tracked_protected tracked_tau_s=1.0 tracked_frame_snr_db=6 tracked_floor_db=0,350,1.97488,2.656

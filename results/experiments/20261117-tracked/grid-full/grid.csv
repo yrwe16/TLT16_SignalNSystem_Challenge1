@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+t0.3_s10_f-200,noise_estimator=tracked_protected tracked_tau_s=0.3 tracked_frame_snr_db=10 tracked_floor_db=-200,1296,1.95389,2.63
+t0.1_s10_f-200,noise_estimator=tracked_protected tracked_tau_s=0.1 tracked_frame_snr_db=10 tracked_floor_db=-200,1296,1.94431,2.598
+t0.1_s6_f-200,noise_estimator=tracked_protected tracked_tau_s=0.1 tracked_frame_snr_db=6 tracked_floor_db=-200,1296,1.94375,2.598
