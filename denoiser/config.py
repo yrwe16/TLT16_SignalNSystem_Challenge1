@@ -227,6 +227,14 @@ class Config:
     tracked_frame_snr_db: float = 10.0
     tracked_combine: str = "min"          # "min" or "mean" of the two directions
     tracked_floor_db: float = -200.0     # floor relative to spp_iter (-200 = none, adopted R2-11)
+    # Round-02 step 12 (version B), harmonic_noise: noise sampled between f0 harmonics in voiced
+    # frames (Ealey, Kelleher & Pearce, Eurospeech 2001, read in the original: <= 4 tunnel values
+    # per side for the interpolation, running average with 25 % new frame). Harmonic width, bias
+    # and combination are our choices (grid).
+    harmonic_noise: bool = False
+    harmonic_halfwidth_bins: int = 2
+    harmonic_combine: str = "mean"        # "mean" (weight 0.5) or "max"
+    harmonic_bias_db: float = 0.0
     snr_adaptive: bool = False
     snr_adapt_start_db: float = 8.0
     snr_adapt_floor15_db: float = -12.0
@@ -365,6 +373,8 @@ class Config:
             raise ValueError("postfilter needs zeta_thr in (0, 1] and psi >= 0.")
         if self.tracked_tau_s <= 0 or self.tracked_combine not in ("min", "mean"):
             raise ValueError("tracked_tau_s must be positive and tracked_combine 'min' or 'mean'.")
+        if self.harmonic_halfwidth_bins < 0 or self.harmonic_combine not in ("mean", "max"):
+            raise ValueError("Invalid harmonic_noise parameters.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

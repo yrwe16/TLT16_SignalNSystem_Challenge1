@@ -562,3 +562,59 @@ def tracked_protected_noise(power, fixed, f0, voiced, voiced_ok, hop_seconds, sa
     if cfg.tracked_floor_db is None:
         return np.maximum(both, 1e-18)
     return np.maximum(both, fixed[:, None] * 10 ** (cfg.tracked_floor_db / 10))
+
+
+def harmonic_tunnel_noise(power, base, f0, voiced, sample_rate, n_fft, cfg):
+    """Round-02 step 12 (version B): noise sampled between speech harmonics in voiced frames.
+
+    D. Ealey, H. Kelleher, D. Pearce, "Harmonic tunnelling: tracking non-stationary noises
+    during speech", Eurospeech 2001, pp. 437-440, DOI 10.21437/Eurospeech.2001-117 (read in
+    the original, ISCA open archive). From the paper: the noise at a harmonic peak is
+    interpolated linearly between end points that are the averages of up to N <= 4 tunnel
+    values on each side (Sec. 2.4.1), and the frame estimates enter a running average in which
+    the current frame contributes 25 % (Sec. 3). Simplified (team prompt, our choice): the
+    harmonic regions are the bins within +-harmonic_halfwidth_bins of multiples of the YIN f0
+    instead of the paper's structural peak classification (Sec. 2.3) and its tunnel-edge rule
+    (Fig. 5); the paper warns that pure pitch-multiple ("comb") sampling can be distorted.
+    The tunnel estimate is scaled by harmonic_bias_db and combined with the existing estimate
+    in voiced frames only, by the mean (weight 0.5) or the maximum (harmonic_combine).
+    Returns (noise PSD per frame, tunnel estimate per frame with NaN outside voiced frames)."""
+    bins, frames = power.shape
+    df = sample_rate / n_fft
+    w = cfg.harmonic_halfwidth_bins
+    base = np.broadcast_to(base[:, None] if base.ndim == 1 else base, power.shape)
+    out = base.copy()
+    tunnel_est = np.full(power.shape, np.nan)
+    running = None
+    scale = 10 ** (cfg.harmonic_bias_db / 10)
+    idx = np.arange(bins)
+    for t in range(frames):
+        if not voiced[t] or f0[t] <= 0:
+            running = None
+            continue
+        harm = np.zeros(bins, dtype=bool)
+        for c in np.rint(np.arange(f0[t], sample_rate / 2, f0[t]) / df).astype(int):
+            harm[max(c - w, 0):c + w + 1] = True
+        tunnel = ~harm
+        if tunnel.sum() < 2:
+            running = None
+            continue
+        est = np.where(tunnel, power[:, t], 0.0)
+        edges = np.flatnonzero(np.diff(np.concatenate([[0], harm.astype(int), [0]])))
+        for start, stop in zip(edges[0::2], edges[1::2]):
+            left = idx[(idx < start) & tunnel][-4:]
+            right = idx[(idx >= stop) & tunnel][:4]
+            if not len(left) and not len(right):
+                continue
+            lv = power[left, t].mean() if len(left) else power[right, t].mean()
+            rv = power[right, t].mean() if len(right) else lv
+            frac = (np.arange(start, stop) - start + 1) / (stop - start + 1)
+            est[start:stop] = lv + (rv - lv) * frac
+        est = est * scale
+        running = est if running is None else 0.75 * running + 0.25 * est
+        tunnel_est[:, t] = running
+        if cfg.harmonic_combine == "max":
+            out[:, t] = np.maximum(base[:, t], running)
+        else:
+            out[:, t] = 0.5 * base[:, t] + 0.5 * running
+    return out, tunnel_est

@@ -12,7 +12,8 @@ from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
-                               tracked_noise, tracked_protected_noise, transient_noise, two_stage_transient)
+                               harmonic_tunnel_noise, tracked_noise, tracked_protected_noise,
+                               transient_noise, two_stage_transient)
 from .masking import masking_floor, speech_frames
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
@@ -61,14 +62,21 @@ def apply_masking_floor(x, sample_rate, z, enhanced, noise, band, times, n_fft, 
     return np.where(raise_, floor * z, enhanced)
 
 
-def protected_noise(x, sample_rate, z, fixed, times, n_fft, hop, cfg):
+def first_pass_f0(x, sample_rate, times, cfg):
+    """YIN f0 (+ the offline smooth_track) on a first pass of the same pipeline with the
+    stationary spp_iter estimate and without the harmonic step (steps 11-12; no recursion)."""
+    first = denoise_signal(x, sample_rate, replace(cfg, noise_estimator="spp_iter",
+                                                   harmonic_noise=False,
+                                                   phase_reconstruction=False))
+    centers = np.rint(times * sample_rate).astype(int)
+    return smooth_track(*yin_f0(first, sample_rate, centers, cfg), cfg)
+
+
+def protected_noise(x, sample_rate, z, fixed, times, n_fft, hop, cfg, f0_voiced=None):
     """Round-02 step 11 (version A): speech-protected time-varying noise PSD. YIN (+ the
     offline smooth_track) runs on a first pass of the same pipeline with the stationary
     spp_iter estimate (no recursion), as in step 7."""
-    first = denoise_signal(x, sample_rate, replace(cfg, noise_estimator="spp_iter",
-                                                   phase_reconstruction=False))
-    centers = np.rint(times * sample_rate).astype(int)
-    f0, voiced = smooth_track(*yin_f0(first, sample_rate, centers, cfg), cfg)
+    f0, voiced = f0_voiced if f0_voiced is not None else first_pass_f0(x, sample_rate, times, cfg)
     ok = np.ones_like(voiced)
     return tracked_protected_noise(np.abs(z) ** 2, fixed, f0, voiced, ok, hop / sample_rate,
                                    sample_rate, n_fft, cfg)
@@ -102,8 +110,14 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
     n_fft, hop = cfg.stft_sizes(sample_rate)
     _, times, z = stft(x, sample_rate, n_fft, hop)
     noise = estimate_noise_psd(z, times, len(x), sample_rate, n_fft, hop, cfg)
+    f0_voiced = None
+    if cfg.harmonic_noise or cfg.noise_estimator == "tracked_protected":
+        f0_voiced = first_pass_f0(x, sample_rate, times, cfg)
     if cfg.noise_estimator == "tracked_protected":
-        noise = protected_noise(x, sample_rate, z, noise, times, n_fft, hop, cfg)
+        noise = protected_noise(x, sample_rate, z, noise, times, n_fft, hop, cfg, f0_voiced)
+    if cfg.harmonic_noise:
+        noise, _ = harmonic_tunnel_noise(np.abs(z) ** 2, noise, *f0_voiced, sample_rate, n_fft,
+                                         cfg)
     stationary = noise
     if cfg.tonal_module:
         f0_voiced = None
