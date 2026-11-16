@@ -146,6 +146,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | R2-3 | R2-2 + 구간별 분위수 잡음 추정 (분위수 0.1, 창 1.5 s, 가중 평균 w 0.3) | 1.939 | | | 미채택 (Train 조건 1 실패: 13개 후보 모두 기준 미만, 최고 −0.009). 창 안의 음성 때문에 추정이 1.7–7 dB 크게 잡혀 변하는 잡음에서도 개선 없음 |
 | R2-4a | 파일별 적응형 저역 감쇠 | | | | 진행하지 않음 (팀 결정): 파일마다 차단 켬/끔을 완벽히 골라도 Train +0.0067로 채택 기준 +0.01 미만. 현 기준의 차단이 파일 88 %에 이미 도움 |
 | R2-4b | R2-2 + SNR에 따른 최소 이득 (12 dB부터, 15 dB에서 −12 dB) | 1.948 | | | 미채택 (Train −0.0004, 4개 후보 모두 기준 미만) |
+| R2-5 | LSA → generalized gamma 사전분포 진폭 추정기 (Erkelens 외 2007) | 1.921 | | | 미채택 (12개 후보 모두 기준 미만, 최고 −0.027). 논문 권장 초가우시안 설정일수록 나쁘고 LSA에 가까울수록 나음 |
 
 ### 로드맵 결과 요약
 
@@ -228,6 +229,7 @@ denoiser/
   stft.py               STFT / ISTFT
   noise_estimation.py   잡음 파워 추정 (파일 고정값 / MMSE-SPP 추적)
   gains.py              Wiener / MMSE-LSA / OM-LSA 이득 (decision-directed)
+  gg_gain.py            generalized gamma 사전분포 MMSE 진폭 추정기 (2회차 5단계, 미채택)
   phase.py              유성음 위상 복원 (YIN 피치, 고조파 모델)
   pipeline.py           신호·파일·폴더 단위 처리
 tools/
@@ -237,6 +239,7 @@ tools/
   baseline_summary.py   기준 결과 통계 요약 (summary.md)
   diagnose_noise_estimate.py  잡음 추정 / 실제 잡음 비율 진단 (대역·잡음 종류·SNR별)
   file_snr_features.py  파일별 저역 SNR·파일 SNR·저역 에너지 비율 (Noisy와 잡음 추정만 사용)
+  plot_gg_gain.py       generalized gamma 추정기 이득 곡선 (논문 그림 5와 비교)
   plot_spectrograms.py  고정 청취 목록의 스펙트로그램
   make_ab_listening.py  블라인드 A/B 청취 세트 생성
 tests/                  회귀 테스트 (unittest) 와 참조값 (tests/data/)
