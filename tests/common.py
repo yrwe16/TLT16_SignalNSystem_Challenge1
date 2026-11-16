@@ -23,11 +23,14 @@ WIENER_BASELINE = replace(CONFIG, gain_rule="wiener", prior_snr="dd", wind_modul
                           phase_reconstruction=False, noise_tracker="fixed", omlsa=False,
                           tonal_module=False, rpca_module=False, transient_module=False,
                           postfilter=False, masking=False)
-# Round-02 base before step 7 (r02-base-s2): the current defaults with the tonal module off.
-R02_S2 = replace(CONFIG, tonal_module=False, noise_estimator="spp_iter")
+# r02-base-s4 (before step 14): tonal tracks without the envelope test, observed power.
+R02_S4 = replace(CONFIG, tonal_level="observed", tonal_env_max_db=1000.0)
+# Round-02 base before step 7 (r02-base-s2): tonal module off, stationary noise estimate.
+R02_S2 = replace(R02_S4, tonal_module=False, noise_estimator="spp_iter")
 # r02-base-s3 (before step 11): stationary spp_iter noise estimate.
-R02_S3 = replace(CONFIG, noise_estimator="spp_iter")
-CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE, "r02_s2": R02_S2, "r02_s3": R02_S3}
+R02_S3 = replace(R02_S4, noise_estimator="spp_iter")
+CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE, "r02_s2": R02_S2, "r02_s3": R02_S3,
+           "r02_s4": R02_S4}
 
 
 def synthetic_signal(seed=0):

@@ -55,8 +55,25 @@ class TonalR02(unittest.TestCase):
                                    self.hop / SAMPLE_RATE, low)
         self.assertFalse(mask.any())                   # the sweep stays below 4 kHz
 
+    def test_envelope_test(self):
+        """R2-14: a steady sweep passes the envelope test; a 5 Hz amplitude-modulated one
+        (speech-like syllable envelope, 20 dB deep) does not."""
+        unvoiced = (np.zeros(self.frames), np.zeros(self.frames, bool))
+        cfg = replace(CFG, tonal_env_max_db=6.0)
+        _, kept = tonal_tracks_r02(self.power, *unvoiced, SAMPLE_RATE, self.n_fft,
+                                   self.hop / SAMPLE_RATE, cfg)
+        self.assertGreaterEqual(len(kept), 1)
+        t = np.arange(len(sweep())) / SAMPLE_RATE
+        modulated = sweep() * (0.55 + 0.45 * np.sin(2 * np.pi * 5 * t))
+        _, _, z = stft(modulated, SAMPLE_RATE, self.n_fft, self.hop)
+        _, kept_mod = tonal_tracks_r02(np.abs(z) ** 2, *unvoiced, SAMPLE_RATE, self.n_fft,
+                                       self.hop / SAMPLE_RATE, cfg)
+        longest = max((p[-1][0] - p[0][0] for p in kept_mod), default=0) * self.hop / SAMPLE_RATE
+        self.assertLess(longest, 1.0)
+
     def test_pipeline(self):
         self.assertTrue(CONFIG.tonal_module and CONFIG.tonal_mode == "r02")  # adopted R2-7
+        self.assertEqual((CONFIG.tonal_level, CONFIG.tonal_env_max_db), ("excess", 6.0))  # R2-14
         x = synthetic_signal()
         x[: len(sweep())] += sweep()
         y = denoise_signal(x, SAMPLE_RATE, CFG)

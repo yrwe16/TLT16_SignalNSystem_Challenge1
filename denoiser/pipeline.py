@@ -10,6 +10,7 @@ from .config import CONFIG
 from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
                     musical_noise_postfilter, omlsa_decision_directed, wiener_decision_directed)
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
+                               gated_transient_noise,
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
                                harmonic_tunnel_noise, tracked_noise, tracked_protected_noise,
@@ -66,7 +67,7 @@ def first_pass_f0(x, sample_rate, times, cfg):
     """YIN f0 (+ the offline smooth_track) on a first pass of the same pipeline with the
     stationary spp_iter estimate and without the harmonic step (steps 11-12; no recursion)."""
     first = denoise_signal(x, sample_rate, replace(cfg, noise_estimator="spp_iter",
-                                                   harmonic_noise=False,
+                                                   harmonic_noise=False, transient_module=False,
                                                    phase_reconstruction=False))
     centers = np.rint(times * sample_rate).astype(int)
     return smooth_track(*yin_f0(first, sample_rate, centers, cfg), cfg)
@@ -133,6 +134,10 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         if extra is not None:
             base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, z.shape)
             noise = base + extra
+    elif cfg.transient_module and cfg.transient_mode == "gated":
+        if f0_voiced is None:
+            f0_voiced = first_pass_f0(x, sample_rate, times, cfg)
+        noise = gated_transient_noise(noise, z, f0_voiced[1], sample_rate, n_fft, cfg)
     elif cfg.transient_module:
         noise = transient_noise(noise, z, cfg)
     band = band_floor_profile(z.shape[0], sample_rate, n_fft, cfg) if cfg.band_floor else None

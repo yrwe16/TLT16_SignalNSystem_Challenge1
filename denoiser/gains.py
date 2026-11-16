@@ -282,7 +282,16 @@ def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg, gain_floor=None):
                             cfg.lsa_smoothing, floor, gain_fn)[:, ::-1]
         xi = 0.5 * (fwd + bwd)
     floor_tf = np.asarray(floor)[:, None] if np.ndim(floor) else floor
-    gain = np.maximum(gain_fn(xi, gamma), floor_tf)
+    raw = gain_fn(xi, gamma)
+    if cfg.floor_mode == "noise":
+        # Round-02 step 14 (our choice): where the LSA gain is below the floor, the output
+        # magnitude is floor x sqrt(noise PSD) instead of floor x |Y|, so the residual in
+        # suppressed cells is steady over time (PESQ penalises fluctuating residual noise in
+        # pauses; see reports/약점 잡음 PESQ 개선 알고리즘.md). Capped at gain 1.
+        level = np.minimum(floor_tf * np.sqrt(noise_tf / np.maximum(power, 1e-30)), 1.0)
+        gain = np.where(raw < floor_tf, level, raw)
+        return gain * z
+    gain = np.maximum(raw, floor_tf)
     return gain * z
 
 

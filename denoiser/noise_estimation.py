@@ -221,6 +221,16 @@ def tonal_tracks_r02(power, f0, voiced, sample_rate, n_fft, hop_seconds, cfg):
         unvoiced = np.mean([not voiced[t] for t, _ in points])
         if unvoiced < cfg.tonal_unvoiced_min:
             continue
+        if cfg.tonal_env_max_db < 999:
+            # Round-02 step 14: amplitude-envelope test (our choice). Alarm and siren tones keep a
+            # steady level along the track; speech harmonics follow the syllable envelope. The
+            # track's peak level (dB) minus its linear trend (decaying bells) must have a standard
+            # deviation <= tonal_env_max_db.
+            frames_ = np.array([t for t, _ in points], dtype=float)
+            level = 10 * np.log10(np.maximum([power[k, t] for t, k in points], 1e-30))
+            resid = level - np.polyval(np.polyfit(frames_, level, 1), frames_)
+            if np.std(resid) > cfg.tonal_env_max_db:
+                continue
         kept.append(points)
         for t, k in points:
             mask[max(k - w, 0):k + w + 1, t] = True
@@ -249,6 +259,14 @@ def add_tonal_noise(noise, z, sample_rate, n_fft, hop, cfg, f0_voiced=None):
     add_tonal_noise.mask = mask
     if cfg.tonal_level == "track_median":
         tonal = np.minimum(tonal_tracks.level, power)
+    elif cfg.tonal_level == "excess":
+        # Round-02 step 14 (our choice): only the power above the local spectral median (over
+        # tonal_median_bins) counts as tonal noise, so speech under a track is not removed with
+        # it. Related idea: attenuating tonal peaks to an interpolated floor (US 8,489,396;
+        # patent not checked, only the idea of an excess over the floor is used here).
+        from scipy.ndimage import median_filter
+        local = median_filter(power, size=(cfg.tonal_median_bins, 1), mode="nearest")
+        tonal = np.where(mask, np.maximum(power - local, 0.0), 0.0)
     else:  # "observed": all power on the track bins counts as noise
         tonal = np.where(mask, power, 0.0)
     return base + cfg.tonal_weight * tonal
@@ -292,6 +310,50 @@ def rpca_noise(noise, z, cfg):
     if cfg.rpca_combine == "max":
         return np.maximum(base, low_psd)
     return np.maximum(low_psd, 1e-18)
+
+
+def gated_transient_noise(noise, z, voiced, sample_rate, n_fft, cfg):
+    """Round-02 step 14: the stage-6d HPSS percussive power added to the noise PSD only in
+    frames that pass a safe gate (transient_mode="gated"; our choices, after the reading in
+    reports/약점 잡음 PESQ 개선 알고리즘.md):
+      (i)   two-sided minimum test (Talmon, Cohen & Gannot, IEEE TASLP 21(1), 2013, idea; their
+            16 ms frames and 40-160 ms windows): band energy E_b(t) > delta x max(min over the
+            past L frames, min over the next L frames), L = transient_gate_frames;
+      (ii)  broadband: (i) holds in at least 3 of the 4 bands 0-1, 1-2, 2-4, 4-8 kHz, including
+            4-8 kHz (claps and slams are broadband; most speech onsets are not);
+      (iii) not voiced (YIN on the first pass) and no voiced frame within the next
+            transient_veto_frames frames (plosives are followed by vowels);
+    gated frames are widened by +-2 frames (a 32 ms window spans four 8 ms hops).
+    The percussive mask is the 6d one (FitzGerald, DAFx 2010 median filtering, margin
+    transient_margin). Elsewhere the noise PSD is unchanged."""
+    from numpy.lib.stride_tricks import sliding_window_view
+    from scipy.ndimage import binary_dilation, median_filter
+    power = np.abs(z) ** 2
+    bins, frames = power.shape
+    f = np.arange(bins) * sample_rate / n_fft
+    edges = (0, 1000, 2000, 4000, sample_rate / 2 + 1)
+    band = np.stack([power[(f >= lo) & (f < hi)].sum(axis=0) for lo, hi in zip(edges[:-1], edges[1:])])
+    L = cfg.transient_gate_frames
+    past = sliding_window_view(np.pad(band, ((0, 0), (L - 1, 0)), constant_values=np.inf), L, axis=1).min(-1)
+    ahead = sliding_window_view(np.pad(band, ((0, 0), (0, L - 1)), constant_values=np.inf), L, axis=1).min(-1)
+    jump = band > cfg.transient_delta * np.maximum(np.maximum(past, ahead), 1e-30)
+    gate = (jump.sum(axis=0) >= 3) & jump[-1]
+    voiced = np.asarray(voiced, dtype=bool)
+    gate &= ~voiced
+    V = cfg.transient_veto_frames
+    if V > 0:
+        soon = sliding_window_view(np.pad(voiced, (0, V)), V + 1)[:, 1:].any(axis=1)
+        gate &= ~soon[:frames]
+    gate = binary_dilation(gate, iterations=2)
+    gated_transient_noise.gate = gate
+    base = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, power.shape)
+    if not gate.any():
+        return noise
+    mag = np.sqrt(power)
+    harmonic = median_filter(mag, size=(1, 17), mode="nearest")
+    percussive = median_filter(mag, size=(17, 1), mode="nearest")
+    mask = (percussive > cfg.transient_margin * harmonic) & gate[None, :]
+    return base + np.where(mask, power, 0.0)
 
 
 def transient_noise(noise, z, cfg):

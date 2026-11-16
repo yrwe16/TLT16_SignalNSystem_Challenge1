@@ -105,7 +105,7 @@ class Config:
     tonal_weight: float = 1.0
     # "observed" = all power on track bins is noise; "track_median" = the median peak power
     # along the track (so speech overlapping the tone in some frames is not removed), variant.
-    tonal_level: str = "observed"
+    tonal_level: str = "excess"          # R2-14 adopted 2026-11-17 (was "observed")
     tonal_fmin: float = 100.0
     tonal_fmax: float = 7800.0
     # Round-02 step 7, tonal_mode="r02" (with tonal_module=True): stage-6a tracker revised.
@@ -127,6 +127,10 @@ class Config:
     # lower track frequency in r02 mode (our choice, team decision 11-16): speech f0 tracks at
     # 125-250 Hz that YIN calls unvoiced were the main false detections on clean speech
     tonal_r02_fmin: float = 400.0
+    # Round-02 step 14: amplitude-envelope test for r02 tracks (std of the detrended track level
+    # in dB must not exceed this; >= 999 = off) and tonal_level="excess" (power above the local
+    # spectral median only). Our choices.
+    tonal_env_max_db: float = 6.0        # R2-14 adopted 2026-11-17 (was 1000 = off)
 
     # Phase reconstruction in voiced speech (roadmap stage 5; Krawczyk & Gerkmann, IEEE/ACM
     # TASLP 22(12):1931-1940, 2014). "combi" = along time and frequency (Sec. IV-B),
@@ -178,6 +182,11 @@ class Config:
     transient_delta: float = 4.0
     transient_bin_share: float = 0.5
     transient_file_index: float = 0.02
+    # Round-02 step 14, transient_mode="gated": 6d percussive power only in gated frames
+    # (two-sided band-energy minimum test with transient_delta, >= 3 of 4 bands incl. 4-8 kHz,
+    # not voiced, no voiced frame within transient_veto_frames). Our choices.
+    transient_gate_frames: int = 8
+    transient_veto_frames: int = 12
 
     # Round-02 step 1, band-dependent gain floor (generalizes wind_module): bands
     # [0, band_cutoff_hz), [cutoff, 1 kHz), [1, 4 kHz), [4 kHz, fs/2]. Below the cutoff the
@@ -235,6 +244,9 @@ class Config:
     harmonic_halfwidth_bins: int = 2
     harmonic_combine: str = "mean"        # "mean" (weight 0.5) or "max"
     harmonic_bias_db: float = 0.0
+    # Round-02 step 14, floor_mode: "noisy" = floor x |Y| (until now); "noise" = floored cells
+    # output floor x sqrt(noise PSD), a steady residual (LSA paths with a prior, our choice).
+    floor_mode: str = "noisy"
     snr_adaptive: bool = False
     snr_adapt_start_db: float = 8.0
     snr_adapt_floor15_db: float = -12.0
@@ -328,10 +340,10 @@ class Config:
                 or self.tonal_slope_hz_s <= 0 or self.tonal_r02_min_seconds <= 0
                 or not 0 <= self.tonal_r02_fmin < self.tonal_fmax
                 or not 0 <= self.tonal_unvoiced_min <= 1
-                or (self.tonal_mode == "r02" and self.tonal_level != "observed")):
+                or (self.tonal_mode == "r02" and self.tonal_level == "track_median")):
             raise ValueError("Invalid tonal_mode='r02' parameters.")
-        if self.tonal_level not in ("observed", "track_median"):
-            raise ValueError("tonal_level must be 'observed' or 'track_median'.")
+        if self.tonal_level not in ("observed", "track_median", "excess"):
+            raise ValueError("tonal_level must be 'observed', 'track_median' or 'excess'.")
         if self.phase_mode not in ("combi", "frequency"):
             raise ValueError("phase_mode must be 'combi' or 'frequency'.")
         if not 0 < self.phase_f0_min < self.phase_f0_max or self.phase_max_hz <= 0:
@@ -343,7 +355,8 @@ class Config:
                 or self.rpca_max_iter < 1 or self.wind_cutoff_hz <= 0
                 or self.transient_margin <= 0 or not 0 <= self.transient_frame_share <= 1):
             raise ValueError("Invalid transient module parameters.")
-        if (self.transient_mode not in ("6d", "two_stage") or self.transient_short_n < 8
+        if (self.transient_mode not in ("6d", "two_stage", "gated") or self.transient_short_n < 8
+                or self.transient_gate_frames < 1 or self.transient_veto_frames < 0
                 or not 0 <= self.transient_alpha_s < 1 or self.transient_causal_s <= 0
                 or self.transient_anticausal_s <= 0 or self.transient_delta <= 1
                 or not 0 < self.transient_bin_share <= 1 or not 0 <= self.transient_file_index <= 1):
@@ -375,6 +388,8 @@ class Config:
             raise ValueError("tracked_tau_s must be positive and tracked_combine 'min' or 'mean'.")
         if self.harmonic_halfwidth_bins < 0 or self.harmonic_combine not in ("mean", "max"):
             raise ValueError("Invalid harmonic_noise parameters.")
+        if self.floor_mode not in ("noisy", "noise"):
+            raise ValueError("floor_mode must be 'noisy' or 'noise'.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

@@ -1,5 +1,5 @@
 {
-  "source": "results/experiments/20261117-r02-base-s4/validation/validation_per_file.csv (round-02 base after step R2-11: speech-protected noise tracking)",
+  "source": "results/experiments/20261117-r02-base-s5/validation/validation_per_file.csv (round-02 base after step R2-14: tonal envelope test and excess power)",
   "tolerance": 0.001,
   "files": [
     {
@@ -8,7 +8,7 @@
       "target_snr_db": 0.0,
       "noisy_path": "validation/noisy/speaker007_utt02_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt02_seg0011.wav",
-      "pesq_wb": 1.143179
+      "pesq_wb": 1.143577
     },
     {
       "segment_id": "speaker015_utt01_seg0008",
