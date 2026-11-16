@@ -512,3 +512,53 @@ def two_stage_transient(x, sample_rate, long_shape, n_fft, hop, cfg, stationary=
     for j in range(n_frames_l):
         out[:, j] = np.interp(f_l, f_s, per_frame[:, j])
     return out * (n_s / n_fft), index
+
+
+def tracked_protected_noise(power, fixed, f0, voiced, voiced_ok, hop_seconds, sample_rate, n_fft,
+                            cfg):
+    """Round-02 step 11 (version A): time-varying noise PSD with speech protection.
+
+    Starting point: the stationary SPP-weighted estimate `fixed` (spp_iter). In every
+    unprotected cell the noise PSD follows the SPP-weighted expected noise periodogram,
+        P = 1 / (1 + (1 + xi_H1) exp(-gamma xi_H1 / (1 + xi_H1))),  gamma = |Y|^2 / N
+        N <- a N + (1 - a) [(1 - P)|Y|^2 + P N],  a = exp(-hop / tau)
+    (update of Gerkmann & Hendriks, IEEE TASLP 20(4), 2012 as in VOICEBOX v_estnoiseg;
+    original not checked). Protected cells keep the previous value (no update while speech is
+    present, the idea of IMCRA, Cohen, IEEE TSAP 11(5), 2003; original not checked):
+      - in voiced frames (YIN on a first pass), bins within +-1 of multiples of f0;
+      - whole frames whose posterior SNR sum|Y|^2 / sum fixed >= tracked_frame_snr_db.
+    Run forward and time-reversed from `fixed`, combined by the cell-wise minimum (or mean,
+    tracked_combine) and kept above fixed x 10^(tracked_floor_db/10) (None = no floor); our choices. tau, the frame SNR threshold and xi_H1 (noise_spp_snr_db) are
+    our choices. Returns the noise PSD per frame (bins x frames)."""
+    bins, frames = power.shape
+    df = sample_rate / n_fft
+    protect = np.zeros_like(power, dtype=bool)
+    frame_snr = 10 * np.log10(np.maximum(power.sum(axis=0), 1e-30)
+                              / max(float(fixed.sum()), 1e-30))
+    protect[:, frame_snr >= cfg.tracked_frame_snr_db] = True
+    for t in np.flatnonzero(np.asarray(voiced) & np.asarray(voiced_ok)):
+        if f0[t] <= 0:
+            continue
+        centres = np.rint(np.arange(f0[t], sample_rate / 2, f0[t]) / df).astype(int)
+        for c in centres:
+            protect[max(c - 1, 0):c + 2, t] = True
+    xi = 10 ** (cfg.noise_spp_snr_db / 10)
+    a = np.exp(-hop_seconds / cfg.tracked_tau_s)
+
+    def run(p, guard):
+        n = fixed.astype(float).copy()
+        out = np.empty_like(p)
+        for t in range(p.shape[1]):
+            y = p[:, t]
+            prob = 1 / (1 + (1 + xi) * np.exp(-(y / np.maximum(n, 1e-30)) * xi / (1 + xi)))
+            update = a * n + (1 - a) * ((1 - prob) * y + prob * n)
+            n = np.where(guard[:, t], n, update)
+            out[:, t] = n
+        return out
+
+    forward = run(power, protect)
+    backward = run(power[:, ::-1], protect[:, ::-1])[:, ::-1]
+    both = np.minimum(forward, backward) if cfg.tracked_combine == "min" else 0.5 * (forward + backward)
+    if cfg.tracked_floor_db is None:
+        return np.maximum(both, 1e-18)
+    return np.maximum(both, fixed[:, None] * 10 ** (cfg.tracked_floor_db / 10))

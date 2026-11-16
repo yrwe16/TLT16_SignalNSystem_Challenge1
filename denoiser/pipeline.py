@@ -12,7 +12,7 @@ from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
-                               tracked_noise, transient_noise, two_stage_transient)
+                               tracked_noise, tracked_protected_noise, transient_noise, two_stage_transient)
 from .masking import masking_floor, speech_frames
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
@@ -61,6 +61,19 @@ def apply_masking_floor(x, sample_rate, z, enhanced, noise, band, times, n_fft, 
     return np.where(raise_, floor * z, enhanced)
 
 
+def protected_noise(x, sample_rate, z, fixed, times, n_fft, hop, cfg):
+    """Round-02 step 11 (version A): speech-protected time-varying noise PSD. YIN (+ the
+    offline smooth_track) runs on a first pass of the same pipeline with the stationary
+    spp_iter estimate (no recursion), as in step 7."""
+    first = denoise_signal(x, sample_rate, replace(cfg, noise_estimator="spp_iter",
+                                                   phase_reconstruction=False))
+    centers = np.rint(times * sample_rate).astype(int)
+    f0, voiced = smooth_track(*yin_f0(first, sample_rate, centers, cfg), cfg)
+    ok = np.ones_like(voiced)
+    return tracked_protected_noise(np.abs(z) ** 2, fixed, f0, voiced, ok, hop / sample_rate,
+                                   sample_rate, n_fft, cfg)
+
+
 def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
     """Background noise PSD from the noisy STFT only (one vector, or one per frame)."""
     if cfg.noise_tracker == "spp":
@@ -69,7 +82,7 @@ def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
         noise = band_frame_noise(z, times, length, sample_rate, n_fft, cfg.noise_band_fraction)
     else:
         noise = lowest_energy_frames(z, times, length, sample_rate, n_fft, cfg.noise_fraction)
-        if cfg.noise_estimator in ("spp_iter", "quantile_window"):
+        if cfg.noise_estimator in ("spp_iter", "quantile_window", "tracked_protected"):
             noise = spp_weighted_noise(z, times, length, sample_rate, n_fft, noise,
                                        cfg.noise_spp_snr_db, cfg.noise_spp_iterations,
                                        cfg.noise_spp_start_db)
@@ -89,6 +102,8 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
     n_fft, hop = cfg.stft_sizes(sample_rate)
     _, times, z = stft(x, sample_rate, n_fft, hop)
     noise = estimate_noise_psd(z, times, len(x), sample_rate, n_fft, hop, cfg)
+    if cfg.noise_estimator == "tracked_protected":
+        noise = protected_noise(x, sample_rate, z, noise, times, n_fft, hop, cfg)
     stationary = noise
     if cfg.tonal_module:
         f0_voiced = None

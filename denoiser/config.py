@@ -199,7 +199,7 @@ class Config:
     # quietest frames chosen per band (b); "spp_iter" = SPP-weighted fixed point started from
     # the lowenergy estimate + start_db (c). The band factors (a) apply after any estimator.
     # All values our choice except the SPP formula (Gerkmann & Hendriks 2012).
-    noise_estimator: str = "spp_iter"   # adopted in round 02, step R2-2
+    noise_estimator: str = "tracked_protected"   # R2-11 adopted 2026-11-17 (was "spp_iter")
     noise_band_fraction: float = 0.2
     noise_spp_snr_db: float = 10.0      # chosen on Train from {10, 15, 20} (edge of grid)
     noise_spp_iterations: int = 3       # chosen on Train from {2, 3} (edge of grid)
@@ -219,6 +219,14 @@ class Config:
     # estimated from the noisy input and the noise estimate (all bins, complete frames),
     # clipped to [0, 15] dB; above snr_adapt_start_db the LSA floor outside the low band rises
     # linearly in dB to snr_adapt_floor15_db at 15 dB. The low-band cap is unchanged. Our choice.
+    # Round-02 step 11 (version A), noise_estimator="tracked_protected": the spp_iter estimate
+    # updated frame by frame (SPP-weighted, time constant tracked_tau_s) except in protected
+    # cells (YIN f0 harmonics +-1 bin in voiced frames; frames with posterior SNR >=
+    # tracked_frame_snr_db); forward and backward runs, minimum, floor = spp_iter. Our choices.
+    tracked_tau_s: float = 0.3
+    tracked_frame_snr_db: float = 10.0
+    tracked_combine: str = "min"          # "min" or "mean" of the two directions
+    tracked_floor_db: float = -200.0     # floor relative to spp_iter (-200 = none, adopted R2-11)
     snr_adaptive: bool = False
     snr_adapt_start_db: float = 8.0
     snr_adapt_floor15_db: float = -12.0
@@ -338,8 +346,9 @@ class Config:
                              "wind_module=False.")
         if self.band_cutoff_hz <= 0 or self.band_smooth_bins not in (0, 1, 2):
             raise ValueError("Invalid band_floor parameters.")
-        if self.noise_estimator not in ("lowenergy", "band_frames", "spp_iter", "quantile_window"):
-            raise ValueError("noise_estimator must be 'lowenergy', 'band_frames', 'spp_iter' "
+        if self.noise_estimator not in ("lowenergy", "band_frames", "spp_iter", "quantile_window",
+                                        "tracked_protected"):
+            raise ValueError("noise_estimator must be 'lowenergy', 'band_frames', 'spp_iter', 'tracked_protected' "
                              "or 'quantile_window'.")
         if (self.noise_combine not in ("max", "mix", "level") or not 0 < self.noise_quantile < 1
                 or self.noise_window_s <= 0 or self.noise_smooth_frames < 1
@@ -354,6 +363,8 @@ class Config:
             raise ValueError("masking needs masking_range_db >= 0.")
         if not 0 < self.postfilter_zeta_thr <= 1 or self.postfilter_psi < 0:
             raise ValueError("postfilter needs zeta_thr in (0, 1] and psi >= 0.")
+        if self.tracked_tau_s <= 0 or self.tracked_combine not in ("min", "mean"):
+            raise ValueError("tracked_tau_s must be positive and tracked_combine 'min' or 'mean'.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
