@@ -1,0 +1,10 @@
+name,overrides,files,pesq,snr_db
+env3_f400_excess,tonal_env_max_db=3 tonal_r02_fmin=400 tonal_level=excess,350,1.99331,2.638
+env3_f400_observed,tonal_env_max_db=3 tonal_r02_fmin=400 tonal_level=observed,350,1.99309,2.638
+env6_f400_excess,tonal_env_max_db=6 tonal_r02_fmin=400 tonal_level=excess,350,1.99252,2.64
+env6_f400_observed,tonal_env_max_db=6 tonal_r02_fmin=400 tonal_level=observed,350,1.99202,2.64
+base-s4,noise_estimator=tracked_protected,350,1.99046,2.635
+env3_f150_excess,tonal_env_max_db=3 tonal_r02_fmin=150 tonal_level=excess,350,1.98841,2.629
+env3_f150_observed,tonal_env_max_db=3 tonal_r02_fmin=150 tonal_level=observed,350,1.98759,2.628
+env6_f150_excess,tonal_env_max_db=6 tonal_r02_fmin=150 tonal_level=excess,350,1.97959,2.607
+env6_f150_observed,tonal_env_max_db=6 tonal_r02_fmin=150 tonal_level=observed,350,1.97749,2.605

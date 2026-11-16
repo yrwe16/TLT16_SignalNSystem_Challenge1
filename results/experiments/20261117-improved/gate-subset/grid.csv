@@ -1,0 +1,6 @@
+name,overrides,files,pesq,snr_db
+base-s4,noise_estimator=tracked_protected,350,1.99046,2.635
+gate_d10_v12,transient_module=true transient_mode=gated transient_delta=10 transient_veto_frames=12,350,1.98341,2.62
+gate_d10_v0,transient_module=true transient_mode=gated transient_delta=10 transient_veto_frames=0,350,1.98228,2.619
+gate_d6_v12,transient_module=true transient_mode=gated transient_delta=6 transient_veto_frames=12,350,1.97466,2.604
+gate_d6_v0,transient_module=true transient_mode=gated transient_delta=6 transient_veto_frames=0,350,1.97172,2.603

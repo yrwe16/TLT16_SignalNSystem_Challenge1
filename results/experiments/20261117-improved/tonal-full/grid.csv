@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+env6_f400_excess,tonal_env_max_db=6 tonal_level=excess,1296,1.95568,2.636
+env3_f400_excess,tonal_env_max_db=3 tonal_level=excess,1296,1.95409,2.632
+env3_f400_observed,tonal_env_max_db=3,1296,1.95385,2.632

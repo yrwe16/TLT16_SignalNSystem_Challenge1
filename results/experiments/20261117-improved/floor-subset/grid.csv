@@ -1,0 +1,7 @@
+name,overrides,files,pesq,snr_db
+fl_noisy_f-15,tonal_env_max_db=6 tonal_level=excess floor_mode=noisy floor_db=-15,350,1.99252,2.64
+fl_noise_f-15,tonal_env_max_db=6 tonal_level=excess floor_mode=noise floor_db=-15,350,1.99139,2.638
+fl_noisy_f-18,tonal_env_max_db=6 tonal_level=excess floor_mode=noisy floor_db=-18,350,1.99129,2.646
+fl_noise_f-18,tonal_env_max_db=6 tonal_level=excess floor_mode=noise floor_db=-18,350,1.99029,2.645
+fl_noise_f-12,tonal_env_max_db=6 tonal_level=excess floor_mode=noise floor_db=-12,350,1.9882,2.623
+fl_noisy_f-12,tonal_env_max_db=6 tonal_level=excess floor_mode=noisy floor_db=-12,350,1.98342,2.623

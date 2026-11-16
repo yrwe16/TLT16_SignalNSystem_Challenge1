@@ -80,7 +80,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd_bidir` (정·역방향 DD 평균) | `prior_snr`, `ceps_*`, `ml2d_*` |
 | 유성음 위상 복원 | 1회차: 켬 (주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임) / 2회차 기본값: 끔 | `phase_reconstruction`, `phase_*` |
-| 협대역 음 모듈 | 켬 (2회차 7단계 채택): `r02` 추적기, 400 Hz–7.8 kHz, 피크 8 dB, 기울기 ±2 kHz/s, 300 ms 이상, 무성음 프레임 비율 0.5 이상, YIN f0 배수 ±1 bin 제외 (단계 6a 추적기는 `tonal_mode="6a"`로 유지) | `tonal_module`, `tonal_*` |
+| 협대역 음 모듈 | 켬 (2회차 7단계 채택, 14단계 보강): `r02` 추적기, 400 Hz–7.8 kHz, 피크 8 dB, 기울기 ±2 kHz/s, 300 ms 이상, 무성음 프레임 비율 0.5 이상, YIN f0 배수 ±1 bin 제외, 진폭 포락 표준편차 ≤ 6 dB, 주변 중앙값 초과분만 잡음에 더함 (단계 6a 추적기는 `tonal_mode="6a"`로 유지) | `tonal_module`, `tonal_*` |
 | 저역 차단 (바람) | 1회차: 켬, 325 Hz / 2회차 기본값: 끔 | `wind_module`, `wind_cutoff_hz` |
 | 대역별 최소 이득 | 켬 (2회차 기본값): 325 Hz 아래 −25 dB, 1–4 kHz·4 kHz 위 LSA 하한 −15 dB, 경계 2 bin 평활 | `band_floor`, `band_*` |
 | RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
@@ -156,6 +156,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | R2-11 | R2-7 + 음성 보호형 시간 변화 잡음 추적 (τ 0.3 s, 프레임 SNR 10 dB 이상 보호, f0 하모닉 보호, 정·역방향 최소) | 1.954 | 1.898 | 2.44 | 채택 (11-16 규칙: Train +0.0002, Validation +0.0034; 근거 약함), 청취 확인 대기. 차량 실내 +0.13, 전화 +0.07 / 경보 −0.03, 물 −0.02. 처리 시간 0.28 → 0.77 s. 새 기준 `20261117-r02-base-s4` |
 | R2-12 | 하모닉 사이 잡음 추정 (Ealey 외 2001 단순화) | | | | 미채택 (탐색 전 중단). 유성음 프레임 추정 오차 6.0 → 14.1 dB, 편향 +9 dB (하모닉 사이로 음성 누설). 원문은 f0 배수 방식의 왜곡을 경고 |
 | R2-13 | 파일 특징에 따른 모듈 분기 (규칙 기반) | | | | 구현 안 함: 잡음 종류 라벨로 완벽하게 분기해도 상한이 모두 +0.01 미만 (과도음 +0.005, 후처리 +0.001, 협대역 완화 +0.001, 마스킹 +0.0003) |
+| R2-14 | R2-11 + 협대역 음 궤적 진폭 포락 검사(추세 제거 표준편차 ≤ 6 dB) + 주변 중앙값 초과분만 잡음에 더함 (과도음 안전 게이트·일정 잔류 바닥은 미채택) | 1.956 | 1.899 | 2.44 | 채택 (11-16 규칙: Train +0.0018, Validation +0.0009, 둘 다 95 % 구간 0 초과), 청취 확인 대기. 전화 +0.014, 경보 +0.006 / 종 −0.041. 새 기준 `20261117-r02-base-s5` |
 
 ### 로드맵 결과 요약
 
@@ -214,7 +215,7 @@ python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening
     --a "기준" --b "새:wind_module=false"
 ```
 
-2회차 실험은 현재 기본값의 결과인 `results/experiments/20261117-r02-base-s4/`(11단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261116-r02-base-s3/`: 7단계 채택 후, `20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
+2회차 실험은 현재 기본값의 결과인 `results/experiments/20261117-r02-base-s5/`(14단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261117-r02-base-s4/`: 11단계 채택 후, `20261116-r02-base-s3/`: 7단계 채택 후, `20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
 
 ### 2회차 채택 조건
 
