@@ -154,6 +154,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | R2-9 | 과도음: 6d 재평가, 짧은 프레임 2단계 추정 (Hirszhorn 외 2012) | 1.912 (6d) | | | 미채택 (탐색 전 중단, 팀 결정). 6d는 대상 +0.2–0.5지만 전체 −0.042. 2단계 판정은 4 ms 해상도에서 음성 자체를 과도음으로 잡아 파일 단위로 대상을 가르지 못함 |
 | R2-10 | 채택 단계를 모두 켜고 좌표 탐색 (최소 이득 × DD 계수, 저역 처리, SPP ξ_H1 × 프레임 길이) | 1.954 | 1.895 | 2.48 | 변경 없음 (모든 좌표에서 현재 값이 최선이거나 차이 < MDE 0.012). 최종 후보 = r02-base-s3, 청취 확인 대기 |
 | R2-11 | R2-7 + 음성 보호형 시간 변화 잡음 추적 (τ 0.3 s, 프레임 SNR 10 dB 이상 보호, f0 하모닉 보호, 정·역방향 최소) | 1.954 | 1.898 | 2.44 | 채택 (11-16 규칙: Train +0.0002, Validation +0.0034; 근거 약함), 청취 확인 대기. 차량 실내 +0.13, 전화 +0.07 / 경보 −0.03, 물 −0.02. 처리 시간 0.28 → 0.77 s. 새 기준 `20261117-r02-base-s4` |
+| R2-12 | 하모닉 사이 잡음 추정 (Ealey 외 2001 단순화) | | | | 미채택 (탐색 전 중단). 유성음 프레임 추정 오차 6.0 → 14.1 dB, 편향 +9 dB (하모닉 사이로 음성 누설). 원문은 f0 배수 방식의 왜곡을 경고 |
 
 ### 로드맵 결과 요약
 
@@ -276,6 +277,7 @@ listening/              청취 세트 (로컬 전용, .gitignore)
 - Y. Gül, A. M. Ariyaeeinia, and O. Dewhirst, "A new approach to reducing alarm noise in speech," *Proc. Eurospeech*, 2003, DOI 10.21437/Eurospeech.2003-393. (2회차 7단계 배경, 원문 확인; 논문의 LP 기반 필터는 쓰지 않음)
 - N. Virag, "Single channel speech enhancement based on masking properties of the human auditory system," *IEEE Transactions on Speech and Audio Processing*, vol. 7, no. 2, pp. 126–137, 1999, DOI 10.1109/89.748118. (2회차 8단계, 보류; 원문 확인)
 - A. Hirszhorn, D. Dov, R. Talmon, and I. Cohen, "Transient interference suppression in speech signals based on the OM-LSA algorithm," *Proc. IWAENC*, 2012. (2회차 9단계, 미채택; 원문 확인)
+- D. Ealey, H. Kelleher, and D. Pearce, "Harmonic tunnelling: tracking non-stationary noises during speech," *Proc. Eurospeech*, pp. 437–440, 2001, DOI 10.21437/Eurospeech.2001-117. (2회차 12단계, 미채택; 원문 확인)
 - R. J. McAulay and T. F. Quatieri, "Speech analysis/synthesis based on a sinusoidal representation," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 34, no. 4, pp. 744–754, 1986, DOI 10.1109/TASSP.1986.1164910. (단계 6 피크 궤적 연결 방식, 미채택; 상수는 자체 설정)
 - 단계 3의 음성 부재 확률 상수와 OM-LSA decision-directed 방식: chenwj1989/python-speech-enhancement `pns/suppression_gain.py` (커밋 f38fde7, BSD-3, Copyright (c) 2019 wjchen)를 읽고 직접 구현.
 - 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).
