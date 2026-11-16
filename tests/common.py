@@ -21,7 +21,8 @@ WIENER_BASELINE = replace(CONFIG, gain_rule="wiener", prior_snr="dd", wind_modul
                           band_floor=False, noise_estimator="lowenergy", noise_beta_low=1.0,
                           noise_beta=1.0, noise_beta_high=1.0,
                           phase_reconstruction=False, noise_tracker="fixed", omlsa=False,
-                          tonal_module=False, rpca_module=False, transient_module=False)
+                          tonal_module=False, rpca_module=False, transient_module=False,
+                          postfilter=False)
 CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE}
 
 

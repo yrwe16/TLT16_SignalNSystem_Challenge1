@@ -198,6 +198,18 @@ class Config:
     gg_gamma: int = 1
     gg_nu: float = 0.6
 
+    # Round-02 step 6, postfilter: musical-noise postfilter of Esch & Vary, ICASSP 2009 (read in
+    # the original), applied to the gain after the gain rule (incl. its floor) and before the
+    # low-band cap. Per frame zeta = sum|G Y|^2 / sum|Y|^2 (eq. 5); frames with zeta >= thr are
+    # untouched; otherwise the gain is smoothed over frequency with a moving average of odd
+    # length N = 2 round((1 - zeta/thr) psi) + 1 (eqs. 6-9). Paper: thr 0.4, psi 10 (8 kHz,
+    # Wiener etc.). Our choices: one-sided bins, reflected edges, round half up, gains limited
+    # to 1 before smoothing (LSA gains can exceed 1), and neither the frame's mean squared gain
+    # nor its output energy sum |G Y|^2 is allowed to rise (scaled back if it does).
+    postfilter: bool = False
+    postfilter_zeta_thr: float = 0.4
+    postfilter_psi: int = 10
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -286,6 +298,8 @@ class Config:
             raise ValueError("Invalid noise estimate parameters.")
         if self.snr_adaptive and (not self.band_floor or not 0 <= self.snr_adapt_start_db < 15):
             raise ValueError("snr_adaptive needs band_floor and snr_adapt_start_db in [0, 15).")
+        if not 0 < self.postfilter_zeta_thr <= 1 or self.postfilter_psi < 0:
+            raise ValueError("postfilter needs zeta_thr in (0, 1] and psi >= 0.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

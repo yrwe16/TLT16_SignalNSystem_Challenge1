@@ -324,3 +324,41 @@ def band_floor_profile(n_bins, sample_rate, n_fft, cfg):
         floor = np.full(n_bins, cfg.lsa_gain_floor)  # exactly the scalar floor's value
     cap = np.where(np.isfinite(cap_db), 10 ** (cap_db / 20), np.inf)
     return floor, cap
+
+
+def musical_noise_postfilter(gain, power, zeta_thr, psi):
+    """Round-02 step 6: musical-noise postfilter (T. Esch, P. Vary, "Efficient musical noise
+    suppression for speech enhancement systems", ICASSP 2009, pp. 4409-4412, read in the
+    original).
+
+    gain: real gain magnitudes (bins x frames); power: |Y|^2 of the noisy STFT.
+    eq. (5): zeta = sum_mu |G Y|^2 / sum_mu |Y|^2 per frame; eq. (6): zeta_T = 1 if
+    zeta >= zeta_thr; eq. (7): N = 1 if zeta_T = 1, else 2 round((1 - zeta_T/zeta_thr) psi) + 1;
+    eqs. (8)-(9): moving average of |G| over frequency with length N.
+    Our choices: one-sided spectrum, reflected edges, round half up; in smoothed frames the
+    gain is limited to 1 before smoothing (the paper's weighting rules are <= 1, but the
+    MMSE-LSA gain exceeds 1 in bins with a small noisy magnitude, and averaging would spread
+    such values to neighbouring bins by up to ~30 dB); and neither the mean squared gain nor
+    the output energy sum |G Y|^2 of a smoothed frame may exceed its value before smoothing
+    (the frame's gain is scaled back if so).
+    Returns (new gain, N per frame, zeta per frame)."""
+    from scipy.ndimage import uniform_filter1d
+    zeta = np.sum(gain ** 2 * power, axis=0) / np.maximum(np.sum(power, axis=0), 1e-30)
+    length = np.ones(gain.shape[1], dtype=int)
+    low = zeta < zeta_thr
+    length[low] = 2 * np.floor((1 - zeta[low] / zeta_thr) * psi + 0.5).astype(int) + 1
+    out = gain.copy()
+    for n in np.unique(length[length > 1]):
+        frames = np.flatnonzero(length == n)
+        smoothed = uniform_filter1d(np.minimum(gain[:, frames], 1.0), size=int(n), axis=0,
+                                    mode="reflect")
+        before = np.mean(gain[:, frames] ** 2, axis=0)
+        after = np.mean(smoothed ** 2, axis=0)
+        p = power[:, frames]
+        e_before = np.sum(gain[:, frames] ** 2 * p, axis=0)
+        e_after = np.sum(smoothed ** 2 * p, axis=0)
+        scale = np.minimum.reduce([np.ones_like(before), before / np.maximum(after, 1e-30),
+                                   e_before / np.maximum(e_after, 1e-30)])
+        smoothed *= np.sqrt(scale)
+        out[:, frames] = smoothed
+    return out, length, zeta

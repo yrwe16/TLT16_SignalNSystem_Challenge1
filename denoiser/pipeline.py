@@ -6,8 +6,8 @@ import numpy as np
 import soundfile as sf
 
 from .config import CONFIG
-from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
-                    wiener_decision_directed)
+from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
+                    musical_noise_postfilter, omlsa_decision_directed, wiener_decision_directed)
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
@@ -80,6 +80,12 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         enhanced = lsa_decision_directed(z, noise, cfg.lsa_smoothing, cfg.lsa_gain_floor)
     else:
         enhanced = wiener_decision_directed(z, noise, cfg.wiener_smoothing, cfg.wiener_gain_floor)
+    if cfg.postfilter:
+        magnitude = np.abs(z)
+        gain = np.abs(enhanced) / np.maximum(magnitude, 1e-30)
+        gain, _, _ = musical_noise_postfilter(gain, magnitude ** 2, cfg.postfilter_zeta_thr,
+                                              cfg.postfilter_psi)
+        enhanced = gain * z
     if cfg.wind_module:
         low = np.arange(enhanced.shape[0]) * sample_rate / n_fft < cfg.wind_cutoff_hz
         floor = cfg.wiener_gain_floor if cfg.gain_rule == "wiener" else cfg.lsa_gain_floor
