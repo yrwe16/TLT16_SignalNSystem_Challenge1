@@ -1,0 +1,10 @@
+name,overrides,files,pesq,snr_db
+nb_b1.0_bh1.25,noise_beta=1.0 noise_beta_high=1.25,350,1.99498,2.642
+nb_b0.8_bh1.25,noise_beta=0.8 noise_beta_high=1.25,350,1.99347,2.632
+nb_b1.25_bh1.25,noise_beta=1.25 noise_beta_high=1.25,350,1.99328,2.645
+nb_b1.0_bh1.0,noise_beta=1.0 noise_beta_high=1.0,350,1.99252,2.64
+nb_b0.8_bh1.0,noise_beta=0.8 noise_beta_high=1.0,350,1.99135,2.631
+nb_b1.25_bh1.0,noise_beta=1.25 noise_beta_high=1.0,350,1.99108,2.645
+nb_b1.0_bh0.8,noise_beta=1.0 noise_beta_high=0.8,350,1.98861,2.638
+nb_b0.8_bh0.8,noise_beta=0.8 noise_beta_high=0.8,350,1.98769,2.63
+nb_b1.25_bh0.8,noise_beta=1.25 noise_beta_high=0.8,350,1.98747,2.643

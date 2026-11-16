@@ -1,0 +1,26 @@
+name,overrides,files,pesq,snr_db
+bf_m-12_mh-21_h-20,band_mid_floor_db=-12 band_midhigh_floor_db=-21 band_high_floor_db=-20,350,1.99907,2.645
+bf_m-12_mh-18_h-20,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-20,350,1.99886,2.644
+bf_m-12_mh-21_h-25,band_mid_floor_db=-12 band_midhigh_floor_db=-21 band_high_floor_db=-25,350,1.99884,2.645
+bf_m-12_mh-18_h-15,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-15,350,1.99868,2.643
+bf_m-12_mh-18_h-25,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-25,350,1.99825,2.644
+bf_m-9_mh-21_h-20,band_mid_floor_db=-9 band_midhigh_floor_db=-21 band_high_floor_db=-20,350,1.99714,2.637
+bf_m-9_mh-18_h-20,band_mid_floor_db=-9 band_midhigh_floor_db=-18 band_high_floor_db=-20,350,1.99709,2.635
+bf_m-9_mh-21_h-25,band_mid_floor_db=-9 band_midhigh_floor_db=-21 band_high_floor_db=-25,350,1.99642,2.637
+bf_m-9_mh-18_h-25,band_mid_floor_db=-9 band_midhigh_floor_db=-18 band_high_floor_db=-25,350,1.9964,2.635
+bf_m-12_mh-15_h-20,band_mid_floor_db=-12 band_midhigh_floor_db=-15 band_high_floor_db=-20,350,1.99627,2.638
+bf_m-12_mh-15_h-15,band_mid_floor_db=-12 band_midhigh_floor_db=-15 band_high_floor_db=-15,350,1.99616,2.638
+bf_m-15_mh-18_h-20,band_mid_floor_db=-15 band_midhigh_floor_db=-18 band_high_floor_db=-20,350,1.9953,2.647
+bf_m-15_mh-18_h-15,band_mid_floor_db=-15 band_midhigh_floor_db=-18 band_high_floor_db=-15,350,1.99525,2.646
+bf_m-12_mh-18_h-12,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-12,350,1.99454,2.641
+bf_m-15_mh-15_h-20,band_mid_floor_db=-15 band_midhigh_floor_db=-15 band_high_floor_db=-20,350,1.99255,2.642
+bf_m-15_mh-15_h-15,band_mid_floor_db=-15 band_midhigh_floor_db=-15 band_high_floor_db=-15,350,1.99252,2.64
+bf_m-12_mh-15_h-12,band_mid_floor_db=-12 band_midhigh_floor_db=-15 band_high_floor_db=-12,350,1.99234,2.635
+bf_m-15_mh-18_h-12,band_mid_floor_db=-15 band_midhigh_floor_db=-18 band_high_floor_db=-12,350,1.99073,2.644
+bf_m-15_mh-15_h-12,band_mid_floor_db=-15 band_midhigh_floor_db=-15 band_high_floor_db=-12,350,1.98834,2.638
+bf_m-12_mh-12_h-15,band_mid_floor_db=-12 band_midhigh_floor_db=-12 band_high_floor_db=-15,350,1.98734,2.625
+bf_m-12_mh-12_h-20,band_mid_floor_db=-12 band_midhigh_floor_db=-12 band_high_floor_db=-20,350,1.98688,2.626
+bf_m-12_mh-12_h-12,band_mid_floor_db=-12 band_midhigh_floor_db=-12 band_high_floor_db=-12,350,1.98387,2.624
+bf_m-15_mh-12_h-15,band_mid_floor_db=-15 band_midhigh_floor_db=-12 band_high_floor_db=-15,350,1.98231,2.628
+bf_m-15_mh-12_h-20,band_mid_floor_db=-15 band_midhigh_floor_db=-12 band_high_floor_db=-20,350,1.98182,2.628
+bf_m-15_mh-12_h-12,band_mid_floor_db=-15 band_midhigh_floor_db=-12 band_high_floor_db=-12,350,1.97903,2.626

@@ -1,0 +1,2 @@
+name,overrides,files,pesq,snr_db
+bf_m-12_mh-18_h-20_bh1.25,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-20 noise_beta_high=1.25,164,1.90106,2.443

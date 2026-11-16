@@ -1,0 +1,9 @@
+name,overrides,files,pesq,snr_db
+sg_f2000_q0.25_max,shape_gain_noise=true shape_gain_fmin_hz=2000 shape_gain_quantile=0.25 shape_gain_combine=max,350,1.91191,2.644
+sg_f4000_q0.25_max,shape_gain_noise=true shape_gain_fmin_hz=4000 shape_gain_quantile=0.25 shape_gain_combine=max,350,1.91097,2.649
+sg_f2000_q0.25_replace,shape_gain_noise=true shape_gain_fmin_hz=2000 shape_gain_quantile=0.25 shape_gain_combine=replace,350,1.90719,2.64
+sg_f4000_q0.25_replace,shape_gain_noise=true shape_gain_fmin_hz=4000 shape_gain_quantile=0.25 shape_gain_combine=replace,350,1.90466,2.645
+sg_f4000_q0.5_max,shape_gain_noise=true shape_gain_fmin_hz=4000 shape_gain_quantile=0.5 shape_gain_combine=max,350,1.9032,2.646
+sg_f4000_q0.5_replace,shape_gain_noise=true shape_gain_fmin_hz=4000 shape_gain_quantile=0.5 shape_gain_combine=replace,350,1.89814,2.643
+sg_f2000_q0.5_max,shape_gain_noise=true shape_gain_fmin_hz=2000 shape_gain_quantile=0.5 shape_gain_combine=max,350,1.89792,2.636
+sg_f2000_q0.5_replace,shape_gain_noise=true shape_gain_fmin_hz=2000 shape_gain_quantile=0.5 shape_gain_combine=replace,350,1.89283,2.634

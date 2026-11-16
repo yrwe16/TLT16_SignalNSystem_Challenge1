@@ -1,0 +1,6 @@
+name,overrides,files,pesq,snr_db
+bf_m-12_mh-18_h-20_bh1.25,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-20 noise_beta_high=1.25,1296,1.9631,2.637
+bf_m-12_mh-21_h-20,band_mid_floor_db=-12 band_midhigh_floor_db=-21 band_high_floor_db=-20,1296,1.96139,2.637
+bf_m-12_mh-18_h-20,band_mid_floor_db=-12 band_midhigh_floor_db=-18 band_high_floor_db=-20,1296,1.96044,2.636
+bf_m-12_mh-18_h-15,band_mid_floor_db=-12 band_midhigh_floor_db=-18,1296,1.96012,2.635
+nb_bh1.25,noise_beta_high=1.25,1296,1.95832,2.637
