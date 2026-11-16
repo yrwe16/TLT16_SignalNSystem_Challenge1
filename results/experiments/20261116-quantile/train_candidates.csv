@@ -1,0 +1,16 @@
+﻿candidate,noise_estimator,band_floor,quantile,window_s,combine,mix_weight,pesq_wb,snr_db,delta_vs_base
+r02-base-s2,spp_iter,True,,,,,1.9485,2.657,0.0
+train-level,quantile_window,True,0.1,1.5,level,,1.9081,2.619,-0.0404
+train-max-q0.1-w0.5,quantile_window,True,0.1,0.5,max,,1.8982,2.625,-0.0503
+train-max-q0.1-w1.0,quantile_window,True,0.1,1.0,max,,1.9125,2.642,-0.036
+train-max-q0.1-w1.5,quantile_window,True,0.1,1.5,max,,1.9131,2.641,-0.0354
+train-max-q0.2-w0.5,quantile_window,True,0.2,0.5,max,,1.8865,2.611,-0.062
+train-max-q0.2-w1.0,quantile_window,True,0.2,1.0,max,,1.9013,2.639,-0.0472
+train-max-q0.2-w1.5,quantile_window,True,0.2,1.5,max,,1.9021,2.638,-0.0464
+train-max-q0.3-w0.5,quantile_window,True,0.3,0.5,max,,1.867,2.581,-0.0815
+train-max-q0.3-w1.0,quantile_window,True,0.3,1.0,max,,1.8853,2.623,-0.0632
+train-max-q0.3-w1.5,quantile_window,True,0.3,1.5,max,,1.8848,2.622,-0.0637
+train-mix-w0.3,quantile_window,True,0.1,1.5,mix,0.3,1.9392,2.655,-0.0093
+train-mix-w0.3-bandoff,quantile_window,False,0.1,1.5,mix,0.3,1.759,12.804,-0.1895
+train-mix-w0.5,quantile_window,True,0.1,1.5,mix,0.5,1.9292,2.644,-0.0193
+train-mix-w0.7,quantile_window,True,0.1,1.5,mix,0.7,1.9191,2.629,-0.0294
