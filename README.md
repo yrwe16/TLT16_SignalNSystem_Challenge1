@@ -3,13 +3,13 @@
 | 항목 | 내용 |
 | --- | --- |
 | 팀명 | 저희가왜마지막이조(TLT, TheLastTeam(16조)) |
-| 제출 회차 | 1회차 |
-| 평가 버전 | Git 태그 `round-01` (커밋 해시는 런어스 제출 글에 함께 기재) |
-| 알고리즘 | MMSE-LSA (양방향 decision-directed 사전 SNR) + 유성음 저역 위상 복원 + 325 Hz 저역 차단, 딥러닝·머신러닝 미사용 |
+| 제출 회차 | 2회차 |
+| 평가 버전 | Git 태그 `round-02` (커밋 해시는 런어스 제출 글에 함께 기재; 1회차는 `round-01`) |
+| 알고리즘 | MMSE-LSA (양방향 decision-directed 사전 SNR) + 음성 보호형 시간 변화 잡음 추정 + 협대역 음(경보·사이렌) 잡음 모듈 + 대역별 최소 이득, 딥러닝·머신러닝 미사용 |
 
 ## 실행 방법
 
-Python 3.10 이상에서 동작합니다 (1회차 제출본은 Python 3.14 새 가상환경에서 설치·실행을 확인했습니다).
+Python 3.10 이상에서 동작합니다 (2회차 제출본은 Python 3.14 새 가상환경에서 `requirements.txt`만으로 설치·실행을 확인했습니다. 파일당 처리 시간은 단일 프로세스로 약 1.1초입니다).
 
 ```bash
 # 1. 패키지 설치
@@ -48,7 +48,7 @@ python -m unittest discover tests                      # 데이터 없이: 합�
 TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Validation 고정 5개 파일 PESQ (pesq 필요)
 ```
 
-- `tests/test_regression.py`: 고정 시드 합성 신호(조화음 + 잡음, 16 kHz, 3초)에 기본값과 Wiener 베이스라인을 적용해 `tests/data/synthetic_*.npy`와 허용오차 1e-6으로 비교합니다. 기본값을 의도적으로 바꿀 때만 `python tests/make_reference.py`로 참조값을 다시 만듭니다.
+- `tests/test_regression.py`: 고정 시드 합성 신호(조화음 + 잡음, 16 kHz, 3초)에 기본값, Wiener 베이스라인, 2회차 이전 기준(s2–s5)을 적용해 `tests/data/synthetic_*.npy`와 허용오차 1e-6으로 비교합니다. 기본값을 의도적으로 바꿀 때만 `python tests/make_reference.py`로 참조값을 다시 만듭니다.
 - `tests/test_io.py`: 같은 파일 이름·하위 폴더, 16-bit PCM, 샘플링 주파수·채널 수·길이 유지, 클리핑 샘플 0개.
 - `tests/test_validation_pesq.py`: `TLT16_DATA_ROOT`가 있을 때만 Validation 5개 파일의 PESQ-WB가 기록값(`tests/data/validation_pesq.json`) ±0.001 이내인지 확인합니다. Windows PowerShell에서는 `$env:TLT16_DATA_ROOT="C:\tlstl16\data"`로 설정합니다.
 
@@ -58,11 +58,12 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 모든 처리는 Noisy 입력만 사용하며, 학습된 모델이나 데이터로 학습하는 파라미터는 없습니다.
 
 1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
-2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 시작값으로 씁니다. 2회차부터는 이를 +2 dB 올린 값에서 출발해, 셀마다 음성이 없을 확률 $P(H_0) = 1 - \big[1 + (1+\xi_{H1})\,e^{-\gamma\,\xi_{H1}/(1+\xi_{H1})}\big]^{-1}$ ($\xi_{H1}$ = 10 dB, Gerkmann & Hendriks 2012)로 가중한 평균 $\sigma^2(k) = \sum_t P(H_0)|Y|^2 / \sum_t P(H_0)$을 3번 반복해 구하고 주파수 방향으로 3-bin 평활화합니다 (파일마다 하나의 값; 2회차 2단계).
-   **협대역 음 (2회차 7단계):** 경보·사이렌·종소리처럼 오래 이어지는 협대역 성분을 프레임마다 추적해(기울기 ±2 kHz/s 이내, 300 ms 이상), 그 궤적과 정수배에서 확인된 피크 주변 ±2 bin의 관측 파워를 잡음 추정에 더합니다. 음성 하모닉을 잘못 잡지 않도록 1차 출력의 YIN f0 배수 ±1 bin을 제외하고, 무성음·묵음 프레임에서도 이어지는 궤적(비율 0.5 이상)만 쓰며, 400 Hz 아래는 찾지 않습니다 (음성 기본 주파수 대역의 오탐 방지, 우리 선택).
+2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 시작값으로 씁니다. 2회차부터는 이를 +2 dB 올린 값에서 출발해, 셀마다 음성이 없을 확률 $P(H_0) = 1 - \big[1 + (1+\xi_{H1})\,e^{-\gamma\,\xi_{H1}/(1+\xi_{H1})}\big]^{-1}$ ($\xi_{H1}$ = 10 dB, Gerkmann & Hendriks 2012)로 가중한 평균 $\sigma^2(k) = \sum_t P(H_0)|Y|^2 / \sum_t P(H_0)$을 3번 반복해 구하고 주파수 방향으로 3-bin 평활화합니다 (2회차 2단계). 4 kHz 위는 이 값에 1.25를 곱합니다 (15단계).
+   **시간 변화 추적 (2회차 11단계):** 이 값에서 출발해 프레임마다 SPP 가중 기대 주기도로 갱신하되(시간 상수 0.3 s), 음성 칸(프레임 사후 SNR ≥ 10 dB인 프레임, 유성음 프레임의 f0 하모닉 ±1 bin)은 갱신하지 않습니다. 정방향·역방향 결과의 칸별 최소값을 씁니다. 하모닉 판정은 같은 처리의 1차 출력에서 YIN으로 구합니다.
+   **협대역 음 (2회차 7·14단계):** 경보·사이렌·종소리처럼 오래 이어지는 협대역 성분을 프레임마다 추적해(기울기 ±2 kHz/s 이내, 300 ms 이상), 그 궤적과 정수배에서 확인된 피크 주변 ±2 bin의 파워 중 주변 스펙트럼 중앙값을 넘는 부분을 잡음 추정에 더합니다. 음성 하모닉을 잘못 잡지 않도록 1차 출력의 YIN f0 배수 ±1 bin을 제외하고, 무성음·묵음 프레임에서도 이어지며(비율 0.5 이상) 레벨이 일정한(추세 제거 표준편차 ≤ 6 dB) 궤적만 쓰고, 400 Hz 아래는 찾지 않습니다 (모두 우리 선택).
 3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리).
 4. **이득 (단계 1):** MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985).
-5. **저역 차단 (단계 6):** 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한합니다 (바람·기계 등 저역 잡음). 1회차 제출본에는 켜져 있고(`wind_module`), 2회차부터는 이를 일반화한 **대역별 최소 이득**(`band_floor`)으로 바꿨습니다: 325 Hz 아래는 출력을 Noisy 입력 대비 −25 dB 이하로 제한하고, 경계 2 bin에 걸쳐 부드럽게 잇습니다 (2회차 1단계, 팀 채택).
+5. **저역 차단 / 대역별 최소 이득:** 1회차 제출본은 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한했습니다(`wind_module`). 2회차부터는 이를 일반화한 **대역별 최소 이득**(`band_floor`)을 씁니다: 325 Hz 아래는 출력을 Noisy 입력 대비 −25 dB 이하로 제한하고(1단계), LSA 최소 이득은 325 Hz–1 kHz −12 dB, 1–4 kHz −18 dB, 4 kHz 위 −20 dB이며(15단계), 경계는 2 bin에 걸쳐 부드럽게 잇습니다.
 6. **유성음 위상 복원 (단계 5):** 1차 출력에서 YIN으로 기본 주파수를 추정하고(비인과 평활), 유성음 프레임의 600 Hz 이하 위상을 고조파 모델과 분석 창의 위상으로 주파수 방향으로 복원합니다 (Krawczyk & Gerkmann, 2014). 유성음 경계에서는 3프레임에 걸쳐 크로스페이드합니다. 1회차 제출본(`round-01` 태그)에는 켜져 있고, 저역 차단과 함께 재측정했을 때 효과가 없어 2회차부터 `main`의 기본값에서는 끕니다 (`phase_reconstruction=False`, 코드는 유지).
 7. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
 
@@ -84,7 +85,8 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | 저역 차단 (바람) | 1회차: 켬, 325 Hz / 2회차 기본값: 끔 | `wind_module`, `wind_cutoff_hz` |
 | 대역별 최소 이득 | 켬 (2회차 기본값, 15단계 재조정): 325 Hz 아래 −25 dB, 325 Hz–1 kHz −12 dB, 1–4 kHz −18 dB, 4 kHz 위 −20 dB, 경계 2 bin 평활; 4 kHz 위 잡음 추정 ×1.25 | `band_floor`, `band_*` |
 | RPCA 잡음 PSD | 끔 (단계 6c 실험, 미채택) | `rpca_module`, `rpca_*` |
-| 과도음 잡음 PSD | 끔 (단계 6d 실험, 미채택) | `transient_module`, `transient_*` |
+| 과도음 잡음 PSD | 끔 (단계 6d·2회차 9·14단계 실험, 미채택) | `transient_module`, `transient_*` |
+| 그 밖의 2회차 실험 모듈 | 모두 끔 (미채택 또는 보류): generalized gamma 이득 `gain_rule="gg"`, 음악성 잡음 후처리 `postfilter`, 청각 마스킹 최소 이득 `masking`, 하모닉 사이 잡음 `harmonic_noise`, 일정 잔류 바닥 `floor_mode`, 형상×레벨 잡음 `shape_gain_noise` | `denoiser/config.py` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
 `gain_rule="wiener"`, `prior_snr="dd"`, `phase_reconstruction=False`, `wind_module=False`로 바꾸면 베이스라인 Wiener(단계 0)와 바이트 단위로 같은 출력을 냅니다.
@@ -93,16 +95,17 @@ LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이
 
 ## Validation 평가 결과
 
-1회차(`round-01`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`results/validation_summary.csv`).
+2회차(`round-02`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`denoise.py`가 저장한 출력을 채점, `results/validation_summary.csv`).
 
 | 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
 | --- | ---: | ---: | ---: |
 | Noisy (처리 전) | 164 | 9.63 | 1.395 |
-| 제출 알고리즘 (1회차) | 164 | 3.83 | 1.805 |
-| 개선량 | | −5.81 | +0.411 |
+| 제출 알고리즘 (2회차) | 164 | 2.44 | **1.901** |
+| 개선량 | | −7.19 | +0.506 |
+| 참고: 1회차 제출본 (`round-01`) | 164 | 3.83 | 1.805 |
 
-PESQ 계산 실패 파일은 0개입니다.
-SNR이 처리 전보다 낮은 것은 325 Hz 저역 차단이 음성의 기본 주파수 대역도 함께 줄이기 때문입니다. 순위 지표인 PESQ-WB를 기준으로 채택했으며, 저역 차단을 끄면 PESQ-WB 1.743, SNR 13.78 dB입니다 (베이스라인 Wiener는 PESQ-WB 1.599, SNR 13.12 dB). 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
+PESQ 계산 실패 파일은 0개입니다. Train(1296개)에서는 처리 전 1.470 → 2회차 1.963 (1회차 1.872)입니다. 1회차 히든 테스트 결과는 PESQ-WB 1.890이었습니다.
+SNR이 처리 전보다 낮은 것은 325 Hz 아래 대역을 깊게 줄이는 대역별 최소 이득이 음성의 기본 주파수 대역도 함께 줄이기 때문입니다. 순위 지표인 PESQ-WB를 기준으로 채택했습니다 (10단계에서 7단계 기준으로 측정했을 때 대역별 최소 이득을 끄면 Validation PESQ-WB 1.749, SNR 13.76 dB; 베이스라인 Wiener는 PESQ-WB 1.599, SNR 13.12 dB). 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
 
 평가 방법은 베이스라인 노트북과 같습니다.
 
