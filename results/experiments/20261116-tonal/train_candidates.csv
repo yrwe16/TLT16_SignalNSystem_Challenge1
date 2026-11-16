@@ -1,0 +1,7 @@
+candidate,tonal_peak_db,tonal_unvoiced_min,pesq_wb,snr_db,delta_vs_base,clean_false_share
+r02-base-s2 (module off),,,1.9485,2.657,0.0,
+6a tracker (reference only),10,,,,,0.0059
+train-p8-u0.3,8,0.3,1.9537,2.658,0.0053,0.0005
+train-p8-u0.5,8,0.5,1.9537,2.658,0.0053,0.0005
+train-p10-u0.3,10,0.3,1.9535,2.664,0.0050,0.0001
+train-p10-u0.5,10,0.5,1.9535,2.664,0.0050,0.0001

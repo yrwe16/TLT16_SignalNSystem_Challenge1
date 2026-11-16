@@ -1,0 +1,19 @@
+{
+  "base": "results\\experiments\\20261113-r02-base-s2\\validation",
+  "new": "results\\experiments\\20261116-tonal\\validation",
+  "split": "validation",
+  "snr_weighted_mean": {
+    "pesq": {
+      "base": 1.7608253238459985,
+      "new": 1.7668419366680794
+    },
+    "snr": {
+      "base": 2.318299380310396,
+      "new": 2.3199552080460966
+    }
+  },
+  "checks": {
+    "validation_mean_diff_>=-0.005": true
+  },
+  "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
+}

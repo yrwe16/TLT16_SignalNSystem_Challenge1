@@ -1,0 +1,13 @@
+# Step R2-7 listening list (validation): the 5 files that got worst and the 5 that
+# improved most with the revised tonal module (r02-base-s2 -> r02-base-s3).
+segment_id,noise_category,target_snr_db
+speaker007_utt01_seg0001,alarm_siren,5.0
+speaker015_utt02_seg0015,alarm_siren,5.0
+speaker007_utt01_seg0012,alarm_siren,10.0
+speaker037_utt01_seg0008,alarm_siren,5.0
+speaker016_utt02_seg0002,alarm_siren,10.0
+speaker037_utt01_seg0013,traffic_vehicle,5.0
+speaker040_utt02_seg0007,destroyer_engine,10.0
+speaker016_utt01_seg0012,traffic_vehicle,15.0
+speaker016_utt01_seg0015,factory,5.0
+speaker016_utt01_seg0002,traffic_vehicle,15.0
