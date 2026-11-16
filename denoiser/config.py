@@ -191,6 +191,13 @@ class Config:
     snr_adapt_start_db: float = 8.0
     snr_adapt_floor15_db: float = -12.0
 
+    # Round-02 step 5, gain_rule="gg": MMSE amplitude estimator under a generalized gamma
+    # prior (Erkelens et al., IEEE TASLP 15(6), 2007, read in the original; see gg_gain.py)
+    # in place of LSA, with the same bidirectional DD a priori SNR and the same floors.
+    # gg_gamma 2: exact eq. (12) (nu = 1 is MMSE-STSA); gg_gamma 1: combined eqs. (16)/(18).
+    gg_gamma: int = 1
+    gg_nu: float = 0.6
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -205,8 +212,13 @@ class Config:
             raise ValueError("wiener_smoothing must be in [0, 1).")
         if not 0 <= self.wiener_gain_floor <= 1:
             raise ValueError("wiener_gain_floor must be in [0, 1].")
-        if self.gain_rule not in ("wiener", "lsa"):
-            raise ValueError("gain_rule must be 'wiener' or 'lsa'.")
+        if self.gain_rule not in ("wiener", "lsa", "gg"):
+            raise ValueError("gain_rule must be 'wiener', 'lsa' or 'gg'.")
+        if self.gain_rule == "gg" and (self.gg_gamma not in (1, 2) or self.gg_nu <= 0
+                                       or (self.gg_gamma == 1 and self.gg_nu <= 0.5)
+                                       or self.prior_snr != "dd_bidir" or self.omlsa):
+            raise ValueError("gain_rule='gg' needs gg_gamma 1 (nu > 0.5) or 2 (nu > 0), "
+                             "prior_snr='dd_bidir' and omlsa=False.")
         if not 0 <= self.lsa_smoothing < 1:
             raise ValueError("lsa_smoothing must be in [0, 1).")
         if not 0 <= self.lsa_gain_floor <= 1:
@@ -235,7 +247,7 @@ class Config:
             raise ValueError("omlsa requires gain_rule='lsa'.")
         if self.prior_snr not in ("dd", "cepstral", "dd_bidir", "ml_2d"):
             raise ValueError("prior_snr must be 'dd', 'cepstral', 'dd_bidir' or 'ml_2d'.")
-        if self.prior_snr != "dd" and (self.gain_rule != "lsa" or self.omlsa):
+        if self.prior_snr != "dd" and (self.gain_rule not in ("lsa", "gg") or self.omlsa):
             raise ValueError("prior_snr other than 'dd' requires gain_rule='lsa', omlsa=False.")
         if self.ceps_kappa < 0 or self.ml2d_bins < 1 or self.ml2d_frames < 1:
             raise ValueError("ceps_kappa must be >= 0 and ml2d sizes >= 1.")
@@ -256,7 +268,7 @@ class Config:
                 or self.rpca_max_iter < 1 or self.wind_cutoff_hz <= 0
                 or self.transient_margin <= 0 or not 0 <= self.transient_frame_share <= 1):
             raise ValueError("Invalid stage-6 module parameters.")
-        if self.band_floor and (self.gain_rule != "lsa" or self.prior_snr != "dd_bidir"
+        if self.band_floor and (self.gain_rule not in ("lsa", "gg") or self.prior_snr != "dd_bidir"
                                 or self.wind_module):
             raise ValueError("band_floor needs gain_rule='lsa', prior_snr='dd_bidir' and "
                              "wind_module=False.")

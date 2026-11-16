@@ -239,8 +239,10 @@ def ml_2d_prior_snr(posterior_snr, cfg):
     return np.maximum(xi, 10 ** (cfg.ceps_xi_min_db / 10))
 
 
-def _dd_prior_snr(posterior_snr, noise_tf, z, smoothing, gain_floor):
-    """The stage-1 DD-LSA loop, returning xi for every frame."""
+def _dd_prior_snr(posterior_snr, noise_tf, z, smoothing, gain_floor, gain_fn=None):
+    """The stage-1 DD-LSA loop, returning xi for every frame. gain_fn replaces the LSA gain
+    (round-02 step 5) so the previous clean estimate comes from the same estimator."""
+    gain_fn = lsa_gain if gain_fn is None else gain_fn
     xi = np.empty_like(posterior_snr)
     previous_clean_power = np.zeros(z.shape[0])
     for frame in range(z.shape[1]):
@@ -251,7 +253,7 @@ def _dd_prior_snr(posterior_snr, noise_tf, z, smoothing, gain_floor):
             prior_snr = (smoothing * previous_clean_power / noise_tf[:, frame]
                          + (1 - smoothing) * instantaneous)
         xi[:, frame] = prior_snr
-        gain = np.maximum(lsa_gain(prior_snr, posterior_snr[:, frame]), gain_floor)
+        gain = np.maximum(gain_fn(prior_snr, posterior_snr[:, frame]), gain_floor)
         previous_clean_power = np.abs(gain * z[:, frame]) ** 2
     return xi
 
@@ -262,6 +264,11 @@ def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg, gain_floor=None):
     gain_floor: scalar or one value per frequency bin (round-02 band_floor); default
     cfg.lsa_gain_floor."""
     floor = cfg.lsa_gain_floor if gain_floor is None else gain_floor
+    if cfg.gain_rule == "gg":
+        from .gg_gain import gg_gain
+        gain_fn = lambda xi_, gamma_: gg_gain(xi_, gamma_, cfg.gg_gamma, cfg.gg_nu)  # noqa: E731
+    else:
+        gain_fn = lsa_gain
     power = np.abs(z) ** 2
     noise_tf = _per_frame(noise, z.shape)
     gamma = power / noise_tf
@@ -270,12 +277,12 @@ def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg, gain_floor=None):
     elif cfg.prior_snr == "ml_2d":
         xi = ml_2d_prior_snr(gamma, cfg)
     else:  # "dd_bidir": mean of forward and time-reversed DD estimates
-        fwd = _dd_prior_snr(gamma, noise_tf, z, cfg.lsa_smoothing, floor)
+        fwd = _dd_prior_snr(gamma, noise_tf, z, cfg.lsa_smoothing, floor, gain_fn)
         bwd = _dd_prior_snr(gamma[:, ::-1], noise_tf[:, ::-1], z[:, ::-1],
-                            cfg.lsa_smoothing, floor)[:, ::-1]
+                            cfg.lsa_smoothing, floor, gain_fn)[:, ::-1]
         xi = 0.5 * (fwd + bwd)
     floor_tf = np.asarray(floor)[:, None] if np.ndim(floor) else floor
-    gain = np.maximum(lsa_gain(xi, gamma), floor_tf)
+    gain = np.maximum(gain_fn(xi, gamma), floor_tf)
     return gain * z
 
 

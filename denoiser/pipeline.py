@@ -71,7 +71,7 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         if offset_db:
             above = np.arange(z.shape[0]) * sample_rate / n_fft >= cfg.band_cutoff_hz
             band = (np.where(above, band[0] * 10 ** (offset_db / 20), band[0]), band[1])
-    if cfg.gain_rule == "lsa" and cfg.prior_snr != "dd":
+    if cfg.gain_rule in ("lsa", "gg") and cfg.prior_snr != "dd":
         enhanced = lsa_with_prior(z, noise, sample_rate, hop / sample_rate, cfg,
                                   gain_floor=None if band is None else band[0])
     elif cfg.gain_rule == "lsa" and cfg.omlsa:
@@ -82,7 +82,7 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         enhanced = wiener_decision_directed(z, noise, cfg.wiener_smoothing, cfg.wiener_gain_floor)
     if cfg.wind_module:
         low = np.arange(enhanced.shape[0]) * sample_rate / n_fft < cfg.wind_cutoff_hz
-        floor = cfg.lsa_gain_floor if cfg.gain_rule == "lsa" else cfg.wiener_gain_floor
+        floor = cfg.wiener_gain_floor if cfg.gain_rule == "wiener" else cfg.lsa_gain_floor
         cap = floor * np.abs(z[low])
         current = np.abs(enhanced[low])
         enhanced[low] *= np.minimum(1.0, cap / np.maximum(current, 1e-30))
