@@ -76,7 +76,7 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | Wiener decision-directed 계수 $a$ | 0.98 | `wiener_smoothing` |
 | Wiener 최소 이득 $g_{\min}$ | 0.05 (−26 dB) | `wiener_gain_floor` |
 | 잡음 추정 방식 | `fixed` (단계 2 실험은 `spp`, 미채택) | `noise_tracker`, `spp_*` |
-| 정상 잡음 추정 | `spp_iter`: SPP 가중 반복 (ξ_H1 10 dB, 3회, 시작값 +2 dB) (2회차 2단계 채택) | `noise_estimator`, `noise_spp_*`, `noise_beta_*` |
+| 정상 잡음 추정 | `tracked_protected` (2회차 11단계 채택): `spp_iter`(SPP 가중 반복, ξ_H1 10 dB, 3회, 시작값 +2 dB)에서 출발해 프레임마다 갱신, 음성 칸(프레임 SNR ≥ 10 dB, f0 하모닉 ±1 bin) 보호, τ 0.3 s, 정·역방향 최소 | `noise_estimator`, `noise_spp_*`, `noise_beta_*` |
 | OM-LSA | 끔 (단계 3 실험, 미채택) | `omlsa`, `omlsa_*` |
 | 사전 SNR 추정 | `dd_bidir` (정·역방향 DD 평균) | `prior_snr`, `ceps_*`, `ml2d_*` |
 | 유성음 위상 복원 | 1회차: 켬 (주파수 방향, 600 Hz 이하, 피치 평활, 크로스페이드 3프레임) / 2회차 기본값: 끔 | `phase_reconstruction`, `phase_*` |
@@ -153,6 +153,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | R2-8 | R2-7 + 청각 마스킹 기반 최소 이득 (Virag 1999; 음성 프레임에서 하한을 √(T/N)까지, 최대 +6 dB) | 1.954 | 1.895 | 2.48 | **보류 (팀 결정 필요)**: Train +0.0005, Validation −0.00003. 음성 없는 프레임 0.93 %에서 이득 상승(과도음). 처리 시간 0.28 → 0.67 s |
 | R2-9 | 과도음: 6d 재평가, 짧은 프레임 2단계 추정 (Hirszhorn 외 2012) | 1.912 (6d) | | | 미채택 (탐색 전 중단, 팀 결정). 6d는 대상 +0.2–0.5지만 전체 −0.042. 2단계 판정은 4 ms 해상도에서 음성 자체를 과도음으로 잡아 파일 단위로 대상을 가르지 못함 |
 | R2-10 | 채택 단계를 모두 켜고 좌표 탐색 (최소 이득 × DD 계수, 저역 처리, SPP ξ_H1 × 프레임 길이) | 1.954 | 1.895 | 2.48 | 변경 없음 (모든 좌표에서 현재 값이 최선이거나 차이 < MDE 0.012). 최종 후보 = r02-base-s3, 청취 확인 대기 |
+| R2-11 | R2-7 + 음성 보호형 시간 변화 잡음 추적 (τ 0.3 s, 프레임 SNR 10 dB 이상 보호, f0 하모닉 보호, 정·역방향 최소) | 1.954 | 1.898 | 2.44 | 채택 (11-16 규칙: Train +0.0002, Validation +0.0034; 근거 약함), 청취 확인 대기. 차량 실내 +0.13, 전화 +0.07 / 경보 −0.03, 물 −0.02. 처리 시간 0.28 → 0.77 s. 새 기준 `20261117-r02-base-s4` |
 
 ### 로드맵 결과 요약
 
@@ -211,7 +212,7 @@ python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening
     --a "기준" --b "새:wind_module=false"
 ```
 
-2회차 실험은 현재 기본값의 결과인 `results/experiments/20261116-r02-base-s3/`(7단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
+2회차 실험은 현재 기본값의 결과인 `results/experiments/20261117-r02-base-s4/`(11단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261116-r02-base-s3/`: 7단계 채택 후, `20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
 
 ### 2회차 채택 조건
 
