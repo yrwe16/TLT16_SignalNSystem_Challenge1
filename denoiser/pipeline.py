@@ -9,7 +9,7 @@ from .config import CONFIG
 from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
                     wiener_decision_directed)
 from .noise_estimation import (add_tonal_noise, band_frame_noise, lowest_energy_frames,
-                               rpca_noise, scale_noise_bands, spp_weighted_noise,
+                               quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
                                tracked_noise, transient_noise)
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
@@ -23,10 +23,12 @@ def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
         noise = band_frame_noise(z, times, length, sample_rate, n_fft, cfg.noise_band_fraction)
     else:
         noise = lowest_energy_frames(z, times, length, sample_rate, n_fft, cfg.noise_fraction)
-        if cfg.noise_estimator == "spp_iter":
+        if cfg.noise_estimator in ("spp_iter", "quantile_window"):
             noise = spp_weighted_noise(z, times, length, sample_rate, n_fft, noise,
                                        cfg.noise_spp_snr_db, cfg.noise_spp_iterations,
                                        cfg.noise_spp_start_db)
+        if cfg.noise_estimator == "quantile_window":
+            noise = quantile_window_noise(z, times, length, sample_rate, n_fft, hop, noise, cfg)
     if (cfg.noise_beta_low, cfg.noise_beta, cfg.noise_beta_high) != (1.0, 1.0, 1.0):
         noise = scale_noise_bands(noise, sample_rate, n_fft, cfg.noise_beta_low,
                                   cfg.noise_beta, cfg.noise_beta_high)

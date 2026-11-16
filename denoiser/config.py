@@ -172,6 +172,13 @@ class Config:
     noise_spp_snr_db: float = 10.0      # chosen on Train from {10, 15, 20} (edge of grid)
     noise_spp_iterations: int = 3       # chosen on Train from {2, 3} (edge of grid)
     noise_spp_start_db: float = 2.0
+    # Round-02 step 3, "quantile_window": time-varying estimate (sliding-window quantile on
+    # top of the spp_iter fixed estimate, which uses the noise_spp_* settings). Our choice.
+    noise_quantile: float = 0.2
+    noise_window_s: float = 1.0
+    noise_smooth_frames: int = 5
+    noise_combine: str = "max"     # "max", "mix" or "level"
+    noise_mix_weight: float = 0.5
     noise_beta_low: float = 1.0    # below 325 Hz
     noise_beta: float = 1.0        # 325 Hz - 4 kHz
     noise_beta_high: float = 1.0   # from 4 kHz
@@ -247,8 +254,13 @@ class Config:
                              "wind_module=False.")
         if self.band_cutoff_hz <= 0 or self.band_smooth_bins not in (0, 1, 2):
             raise ValueError("Invalid band_floor parameters.")
-        if self.noise_estimator not in ("lowenergy", "band_frames", "spp_iter"):
-            raise ValueError("noise_estimator must be 'lowenergy', 'band_frames' or 'spp_iter'.")
+        if self.noise_estimator not in ("lowenergy", "band_frames", "spp_iter", "quantile_window"):
+            raise ValueError("noise_estimator must be 'lowenergy', 'band_frames', 'spp_iter' "
+                             "or 'quantile_window'.")
+        if (self.noise_combine not in ("max", "mix", "level") or not 0 < self.noise_quantile < 1
+                or self.noise_window_s <= 0 or self.noise_smooth_frames < 1
+                or not 0 <= self.noise_mix_weight <= 1):
+            raise ValueError("Invalid quantile_window parameters.")
         if (min(self.noise_beta_low, self.noise_beta, self.noise_beta_high) <= 0
                 or not 0 < self.noise_band_fraction <= 1 or self.noise_spp_iterations < 1):
             raise ValueError("Invalid noise estimate parameters.")

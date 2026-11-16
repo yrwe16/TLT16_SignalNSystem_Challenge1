@@ -57,5 +57,47 @@ class NoiseEstimate(unittest.TestCase):
                 self.assertEqual(y.shape, x.shape)
 
 
+
+class QuantileWindow(unittest.TestCase):
+    """Round-02 step 3: the bias-corrected sliding-window quantile matches the true power of
+    stationary white noise and follows a 12 dB level step."""
+
+    def _estimate(self, x, **kw):
+        cfg = replace(CONFIG, noise_estimator="quantile_window", **kw)
+        n_fft, hop = cfg.stft_sizes(SAMPLE_RATE)
+        _, times, z = stft(x, SAMPLE_RATE, n_fft, hop)
+        return estimate_noise_psd(z, times, len(x), SAMPLE_RATE, n_fft, hop, cfg)
+
+    def test_unbiased_on_white_noise(self):
+        x = np.random.default_rng(7).standard_normal(SAMPLE_RATE * 3) * 0.1
+        n_fft = CONFIG.stft_sizes(SAMPLE_RATE)[0]
+        true = 0.01 * np.hanning(n_fft + 1)[:-1].__pow__(2).sum() / (np.hanning(n_fft + 1)[:-1].sum() ** 2)
+        for q in (0.1, 0.2, 0.3):
+            for w in (0.5, 1.0):
+                with self.subTest(q=q, window=w):
+                    est = self._estimate(x, noise_quantile=q, noise_window_s=w, noise_combine="mix",
+                                         noise_mix_weight=1.0)
+                    ratio_db = 10 * np.log10(est[5:-5, 40:-40].mean() / true)
+                    self.assertLess(abs(ratio_db), 0.5)
+
+    def test_follows_level_step(self):
+        rng = np.random.default_rng(8)
+        x = rng.standard_normal(SAMPLE_RATE * 3) * 0.02
+        x[SAMPLE_RATE * 3 // 2:] *= 4.0  # +12 dB in the second half
+        est = self._estimate(x, noise_quantile=0.2, noise_window_s=0.5, noise_combine="mix",
+                             noise_mix_weight=1.0)
+        first, second = est[5:-5, 20:120].mean(), est[5:-5, -120:-20].mean()
+        self.assertGreater(10 * np.log10(second / first), 9.0)
+
+    def test_combine_modes_finite(self):
+        x = synthetic_signal()
+        for combine in ("max", "mix", "level"):
+            with self.subTest(combine=combine):
+                y = denoise_signal(x, SAMPLE_RATE, replace(CONFIG, noise_estimator="quantile_window",
+                                                           noise_combine=combine))
+                self.assertTrue(np.isfinite(y).all())
+                self.assertEqual(y.shape, x.shape)
+
+
 if __name__ == "__main__":
     unittest.main()

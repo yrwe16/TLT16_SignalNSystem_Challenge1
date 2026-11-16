@@ -1,7 +1,9 @@
 """Noise power estimation from the noisy input only (no clean reference)."""
 
+from functools import lru_cache
+
 import numpy as np
-from scipy.ndimage import uniform_filter1d
+from scipy.ndimage import percentile_filter, uniform_filter, uniform_filter1d
 
 
 def lowest_energy_frames(z, times, length, sample_rate, n_fft, noise_fraction):
@@ -278,3 +280,65 @@ def scale_noise_bands(noise, sample_rate, n_fft, beta_low, beta, beta_high):
     freqs = np.arange(noise.shape[0]) * sample_rate / n_fft
     factor = np.where(freqs < 325.0, beta_low, np.where(freqs < 4000.0, beta, beta_high))
     return noise * (factor if noise.ndim == 1 else factor[:, None])
+
+
+VARYING_BANDS = (0.0, 325.0, 1000.0, 4000.0)
+
+
+@lru_cache(maxsize=32)
+def quantile_bias(quantile, window_frames, n_fft, hop):
+    """Mean of the sliding-window quantile / true power for white noise through the same STFT
+    (Hann, n_fft, hop, centred percentile filter over window_frames). Computed numerically from
+    60 s of fixed-seed white noise instead of the iid exponential formula, because overlapping
+    frames are correlated (round-02 step 3 rule; our choice of signal length and seed)."""
+    from .stft import stft
+    rng = np.random.default_rng(12345)
+    x = rng.standard_normal(16000 * 60)
+    _, _, z = stft(x, 16000, n_fft, hop)
+    power = np.abs(z[:, 4:-4]) ** 2
+    q = percentile_filter(power, 100 * quantile, size=(1, window_frames), mode="nearest")
+    return float(q[:, window_frames:-window_frames].mean() / power.mean())
+
+
+def quantile_window_noise(z, times, length, sample_rate, n_fft, hop, fixed, cfg):
+    """Round-02 step 3: time-varying noise PSD from a centred (non-causal) sliding-window
+    quantile per frequency bin, combined with the fixed step-2 estimate `fixed`.
+
+    Quantile-based noise estimation after Stahl, Fischer & Bippus, ICASSP 2000, vol. 3,
+    pp. 1875-1878, DOI 10.1109/ICASSP.2000.862122 (bibliography checked; full text not read,
+    "원문 미확인": the sliding window, bias table, smoothing and combination are our choice).
+    1. per bin, quantile q of |Y|^2 over a window of noise_window_s centred on each frame
+       (zero-padded edge frames replaced by the nearest complete frame);
+    2. divided by the numerical white-noise bias of that quantile and window;
+    3. smoothed over noise_smooth_frames frames x 3 bins;
+    4. combined with the fixed estimate S(k): "max" = max(S, Q); "mix" = w Q + (1-w) S;
+       "level" = S(k) g_b(t), g_b = band ratio sum Q / sum S in 4 bands (0/325/1k/4k Hz),
+       moving-averaged over 200 ms and limited to [-6, +12] dB.
+    """
+    power = np.abs(z) ** 2
+    full = complete_frames(times, length, sample_rate, n_fft, power.shape[1])
+    if len(full) < power.shape[1]:
+        idx = np.clip(np.arange(power.shape[1]), full[0], full[-1])
+        power = power[:, idx]
+    hop_s = hop / sample_rate
+    window = max(3, int(round(cfg.noise_window_s / hop_s)) | 1)
+    q = percentile_filter(power, 100 * cfg.noise_quantile, size=(1, window), mode="nearest")
+    q = q / quantile_bias(cfg.noise_quantile, window, n_fft, hop)
+    q = uniform_filter(q, size=(3, cfg.noise_smooth_frames), mode="nearest")
+    q = np.maximum(q, 1e-18)
+    fixed_tf = np.broadcast_to(fixed[:, None], q.shape)
+    if cfg.noise_combine == "max":
+        return np.maximum(fixed_tf, q)
+    if cfg.noise_combine == "mix":
+        return cfg.noise_mix_weight * q + (1 - cfg.noise_mix_weight) * fixed_tf
+    freqs = np.arange(q.shape[0]) * sample_rate / n_fft
+    edges = list(VARYING_BANDS) + [np.inf]
+    level = np.empty_like(q)
+    span = max(1, int(round(0.2 / hop_s)))
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        band = (freqs >= lo) & (freqs < hi)
+        ratio = q[band].sum(axis=0) / max(fixed[band].sum(), 1e-30)
+        ratio_db = uniform_filter1d(10 * np.log10(np.maximum(ratio, 1e-30)), size=span,
+                                    mode="nearest")
+        level[band] = 10 ** (np.clip(ratio_db, -6.0, 12.0) / 10)
+    return fixed_tf * level
