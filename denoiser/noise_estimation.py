@@ -342,3 +342,19 @@ def quantile_window_noise(z, times, length, sample_rate, n_fft, hop, fixed, cfg)
                                     mode="nearest")
         level[band] = 10 ** (np.clip(ratio_db, -6.0, 12.0) / 10)
     return fixed_tf * level
+
+
+def file_snr_features(z, noise, sample_rate, n_fft, cutoff_hz):
+    """Round-02 step 4: file-level SNR features from the noisy STFT and the noise estimate only.
+
+    snr_lowband_db = 10 log10( sum_{t, f<cutoff} max(|Y|^2 - N, 0) / sum_{t, f<cutoff} N ),
+    snr_file_db the same over all bins, lowband_energy_ratio_db = low-band / total noisy
+    energy. N may be one vector or one vector per frame."""
+    power = np.abs(z) ** 2
+    noise_tf = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, power.shape)
+    low = np.arange(power.shape[0]) * sample_rate / n_fft < cutoff_hz
+    clean_est = np.maximum(power - noise_tf, 0.0)
+    db = lambda a, b: float(10 * np.log10(max(a, 1e-30) / max(b, 1e-30)))
+    return {"snr_lowband_db": db(clean_est[low].sum(), noise_tf[low].sum()),
+            "snr_file_db": db(clean_est.sum(), noise_tf.sum()),
+            "lowband_energy_ratio_db": db(power[low].sum(), power.sum())}
