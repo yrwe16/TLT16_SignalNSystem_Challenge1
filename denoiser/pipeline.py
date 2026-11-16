@@ -8,11 +8,24 @@ import soundfile as sf
 from .config import CONFIG
 from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior, omlsa_decision_directed,
                     wiener_decision_directed)
-from .noise_estimation import (add_tonal_noise, band_frame_noise, lowest_energy_frames,
+from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
+                               file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
                                tracked_noise, transient_noise)
 from .phase import reconstruct_phase, smooth_track, yin_f0
 from .stft import as_waveform, istft, stft
+
+
+def snr_adaptive_offset_db(snr_hat_db, cfg):
+    """Round-02 step 4 part 2: raise the LSA floor (above the low band) by an offset that grows
+    linearly in dB from 0 at snr_adapt_start_db to (snr_adapt_floor15_db - band floor) at
+    15 dB, with the file SNR estimate clipped to [0, 15] dB. Values: our choice (SNR-dependent
+    suppression after Berouti et al., ICASSP 1979; original not checked)."""
+    snr = float(np.clip(snr_hat_db, 0.0, 15.0))
+    if snr <= cfg.snr_adapt_start_db:
+        return 0.0
+    full_offset = cfg.snr_adapt_floor15_db - cfg.band_mid_floor_db
+    return full_offset * (snr - cfg.snr_adapt_start_db) / (15.0 - cfg.snr_adapt_start_db)
 
 
 def estimate_noise_psd(z, times, length, sample_rate, n_fft, hop, cfg=CONFIG):
@@ -50,6 +63,14 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
     if cfg.transient_module:
         noise = transient_noise(noise, z, cfg)
     band = band_floor_profile(z.shape[0], sample_rate, n_fft, cfg) if cfg.band_floor else None
+    if cfg.snr_adaptive and band is not None:
+        full = complete_frames(times, len(x), sample_rate, n_fft, z.shape[1])
+        snr_hat = file_snr_features(z[:, full], noise if noise.ndim == 1 else noise[:, full],
+                                    sample_rate, n_fft, cfg.band_cutoff_hz)["snr_file_db"]
+        offset_db = snr_adaptive_offset_db(snr_hat, cfg)
+        if offset_db:
+            above = np.arange(z.shape[0]) * sample_rate / n_fft >= cfg.band_cutoff_hz
+            band = (np.where(above, band[0] * 10 ** (offset_db / 20), band[0]), band[1])
     if cfg.gain_rule == "lsa" and cfg.prior_snr != "dd":
         enhanced = lsa_with_prior(z, noise, sample_rate, hop / sample_rate, cfg,
                                   gain_floor=None if band is None else band[0])

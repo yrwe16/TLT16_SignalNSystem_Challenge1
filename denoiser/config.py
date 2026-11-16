@@ -183,6 +183,14 @@ class Config:
     noise_beta: float = 1.0        # 325 Hz - 4 kHz
     noise_beta_high: float = 1.0   # from 4 kHz
 
+    # Round-02 step 4 part 2, SNR-dependent gain floor (needs band_floor): the file SNR is
+    # estimated from the noisy input and the noise estimate (all bins, complete frames),
+    # clipped to [0, 15] dB; above snr_adapt_start_db the LSA floor outside the low band rises
+    # linearly in dB to snr_adapt_floor15_db at 15 dB. The low-band cap is unchanged. Our choice.
+    snr_adaptive: bool = False
+    snr_adapt_start_db: float = 8.0
+    snr_adapt_floor15_db: float = -12.0
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -264,6 +272,8 @@ class Config:
         if (min(self.noise_beta_low, self.noise_beta, self.noise_beta_high) <= 0
                 or not 0 < self.noise_band_fraction <= 1 or self.noise_spp_iterations < 1):
             raise ValueError("Invalid noise estimate parameters.")
+        if self.snr_adaptive and (not self.band_floor or not 0 <= self.snr_adapt_start_db < 15):
+            raise ValueError("snr_adaptive needs band_floor and snr_adapt_start_db in [0, 15).")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 
