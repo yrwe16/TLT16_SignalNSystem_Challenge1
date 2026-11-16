@@ -127,6 +127,8 @@ def main():
                         help="override a denoiser Config field for this run (repeatable)")
     parser.add_argument("--keep-enhanced", type=Path,
                         help="also save the denoised WAV files to this folder")
+    parser.add_argument("--subset", type=Path,
+                        help="CSV with a segment_id column: evaluate only these segments")
     args = parser.parse_args()
     cfg = parse_overrides(args.set)
     if args.enhanced_dir and args.set:
@@ -134,6 +136,9 @@ def main():
 
     root = args.data_root.resolve()
     manifest = pd.read_csv(root / args.split / "samples.csv")
+    if args.subset:
+        keep = set(pd.read_csv(args.subset, comment="#").segment_id)
+        manifest = manifest[manifest.segment_id.isin(keep)].reset_index(drop=True)
     with tempfile.TemporaryDirectory() as tmp, ProcessPoolExecutor(args.workers) as pool:
         if args.enhanced_dir:
             enhanced_dir = args.enhanced_dir.resolve()
@@ -162,7 +167,8 @@ def main():
     for by in ("noise_category", "target_snr_db", "noise_difficulty"):
         summarize(detail, by).to_csv(out / f"{args.split}_by_{by}.csv", index=False,
                                      encoding="utf-8-sig")
-    meta = {"split": args.split, "files": len(detail), "config": asdict(cfg), "overrides": args.set,
+    meta = {"split": args.split, "files": len(detail),
+            "subset": str(args.subset) if args.subset else None, "config": asdict(cfg), "overrides": args.set,
             "python": platform.python_version(), "pesq_mode": "wb",
             "snr": "10*log10(sum(clean**2)/sum((clean-output)**2)), no alignment",
             "scored_region": ("first valid_samples samples (samples.csv column)"
