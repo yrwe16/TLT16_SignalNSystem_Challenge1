@@ -151,6 +151,7 @@ Windows에서 `pesq` 설치가 실패하면 `conda install -c conda-forge pesq=0
 | R2-6 | 음악성 잡음 후처리: 저 SNR 프레임 이득의 주파수 방향 적응 평활 (Esch & Vary 2009) | 1.949 | | | 미채택 (최고 +0.0004, 6개 후보). 평활 폭이 넓을수록 나쁨 |
 | R2-7 | R2-2 + 협대역 음 모듈 개선 (YIN f0 배수 제외, 무성음 구간 지속, 프레임별 추적 ±2 kHz/s, 정수배, 400 Hz 이상; 피크 8 dB, 무성음 비율 0.5) | 1.954 | 1.895 | 2.48 | 채택 (2026-11-16 팀 결정 규칙: Train·Validation 모두 기준 초과), 청취 확인 대기. Train +0.0053 (95 % 구간 0.003–0.008), Validation +0.0078 (0.003–0.014). 깨끗한 음성 오탐 0.59 % → 0.05 %. 경보 Train +0.023 / Validation −0.005, 교통 +0.032 / +0.079. 기존 조건 1(+0.01)은 실패. 새 기준 `20261116-r02-base-s3` |
 | R2-8 | R2-7 + 청각 마스킹 기반 최소 이득 (Virag 1999; 음성 프레임에서 하한을 √(T/N)까지, 최대 +6 dB) | 1.954 | 1.895 | 2.48 | **보류 (팀 결정 필요)**: Train +0.0005, Validation −0.00003. 음성 없는 프레임 0.93 %에서 이득 상승(과도음). 처리 시간 0.28 → 0.67 s |
+| R2-9 | 과도음: 6d 재평가, 짧은 프레임 2단계 추정 (Hirszhorn 외 2012) | 1.912 (6d) | | | 미채택 (탐색 전 중단, 팀 결정). 6d는 대상 +0.2–0.5지만 전체 −0.042. 2단계 판정은 4 ms 해상도에서 음성 자체를 과도음으로 잡아 파일 단위로 대상을 가르지 못함 |
 
 ### 로드맵 결과 요약
 
@@ -272,6 +273,7 @@ listening/              청취 세트 (로컬 전용, .gitignore)
 - T. Esch and P. Vary, "Efficient musical noise suppression for speech enhancement systems," *Proc. IEEE ICASSP*, pp. 4409–4412, 2009. (2회차 6단계, 미채택; 원문 확인)
 - Y. Gül, A. M. Ariyaeeinia, and O. Dewhirst, "A new approach to reducing alarm noise in speech," *Proc. Eurospeech*, 2003, DOI 10.21437/Eurospeech.2003-393. (2회차 7단계 배경, 원문 확인; 논문의 LP 기반 필터는 쓰지 않음)
 - N. Virag, "Single channel speech enhancement based on masking properties of the human auditory system," *IEEE Transactions on Speech and Audio Processing*, vol. 7, no. 2, pp. 126–137, 1999, DOI 10.1109/89.748118. (2회차 8단계, 보류; 원문 확인)
+- A. Hirszhorn, D. Dov, R. Talmon, and I. Cohen, "Transient interference suppression in speech signals based on the OM-LSA algorithm," *Proc. IWAENC*, 2012. (2회차 9단계, 미채택; 원문 확인)
 - R. J. McAulay and T. F. Quatieri, "Speech analysis/synthesis based on a sinusoidal representation," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 34, no. 4, pp. 744–754, 1986, DOI 10.1109/TASSP.1986.1164910. (단계 6 피크 궤적 연결 방식, 미채택; 상수는 자체 설정)
 - 단계 3의 음성 부재 확률 상수와 OM-LSA decision-directed 방식: chenwj1989/python-speech-enhancement `pns/suppression_gain.py` (커밋 f38fde7, BSD-3, Copyright (c) 2019 wjchen)를 읽고 직접 구현.
 - 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).
