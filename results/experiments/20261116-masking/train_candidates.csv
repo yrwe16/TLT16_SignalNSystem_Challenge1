@@ -1,0 +1,6 @@
+candidate,masking_offset_db,masking_range_db,pesq_wb,snr_db,delta_vs_base
+r02-base-s3 (off),,,1.95372,2.658,0.0
+train-o0-r3,0,3,1.95401,2.658,0.00029
+train-o0-r6,0,6,1.95421,2.658,0.00049
+train-o-6-r3,-6,3,1.95380,2.658,0.00008
+train-o-6-r6,-6,6,1.95386,2.658,0.00014

@@ -1,0 +1,13 @@
+# Step R2-8 listening list (validation): the 5 files that got worst and the 5 that
+# improved most with the masking floor (r02-base-s3 -> masking).
+segment_id,noise_category,target_snr_db
+speaker037_utt02_seg0008,wind,15.0
+speaker037_utt02_seg0016,destroyer_engine,10.0
+speaker037_utt01_seg0011,wind,15.0
+speaker037_utt02_seg0001,aircraft_cockpit,15.0
+speaker007_utt01_seg0007,machine,10.0
+speaker037_utt01_seg0006,traffic_vehicle,15.0
+speaker016_utt01_seg0011,machine,15.0
+speaker040_utt02_seg0003,machine,10.0
+speaker015_utt02_seg0008,machine,15.0
+speaker040_utt02_seg0011,alarm_siren,10.0

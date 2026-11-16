@@ -1,0 +1,130 @@
+{
+  "split": "train",
+  "files": 1296,
+  "flagged_share_of_speech_frames": 0.42281205866237237,
+  "flagged_share_of_pause_frames": 0.010910989297833464,
+  "pause_frames": 19155,
+  "flagged_pause_frames": 209,
+  "files_with_flagged_pause": 44,
+  "flagged_frames_that_are_speech": 0.9922664541601768,
+  "raised_share_of_speech_frames": 0.3598845480059578,
+  "raised_pause_frames": 179,
+  "files_with_raised_pause": 38,
+  "by_type": [
+    {
+      "noise_category": "aircraft_cockpit",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3633
+    },
+    {
+      "noise_category": "alarm_siren",
+      "pause_rate": 0.004,
+      "speech_rate": 0.4074
+    },
+    {
+      "noise_category": "animal",
+      "pause_rate": 0.0932,
+      "speech_rate": 0.8019
+    },
+    {
+      "noise_category": "bell",
+      "pause_rate": 0.0333,
+      "speech_rate": 0.5778
+    },
+    {
+      "noise_category": "broadband_noise",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3692
+    },
+    {
+      "noise_category": "clap",
+      "pause_rate": 0.2857,
+      "speech_rate": 0.8149
+    },
+    {
+      "noise_category": "click",
+      "pause_rate": 0.0,
+      "speech_rate": 0.5548
+    },
+    {
+      "noise_category": "destroyer_engine",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3357
+    },
+    {
+      "noise_category": "destroyer_operations",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3165
+    },
+    {
+      "noise_category": "door_moving",
+      "pause_rate": 0.0732,
+      "speech_rate": 0.6951
+    },
+    {
+      "noise_category": "factory",
+      "pause_rate": 0.0,
+      "speech_rate": 0.4739
+    },
+    {
+      "noise_category": "footsteps",
+      "pause_rate": 0.0143,
+      "speech_rate": 0.7697
+    },
+    {
+      "noise_category": "hf_channel",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3274
+    },
+    {
+      "noise_category": "machine",
+      "pause_rate": 0.0218,
+      "speech_rate": 0.4539
+    },
+    {
+      "noise_category": "machine_gun",
+      "pause_rate": 0.0714,
+      "speech_rate": 0.9205
+    },
+    {
+      "noise_category": "military_vehicle",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3648
+    },
+    {
+      "noise_category": "phone_dialing",
+      "pause_rate": 0.0272,
+      "speech_rate": 0.3134
+    },
+    {
+      "noise_category": "shower",
+      "pause_rate": 0.0,
+      "speech_rate": 0.7733
+    },
+    {
+      "noise_category": "tooth_brushing",
+      "pause_rate": 0.0238,
+      "speech_rate": 0.7628
+    },
+    {
+      "noise_category": "traffic_vehicle",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3731
+    },
+    {
+      "noise_category": "vehicle_interior",
+      "pause_rate": 0.0176,
+      "speech_rate": 0.5107
+    },
+    {
+      "noise_category": "water",
+      "pause_rate": 0.021,
+      "speech_rate": 0.7224
+    },
+    {
+      "noise_category": "wind",
+      "pause_rate": 0.0,
+      "speech_rate": 0.3222
+    }
+  ]
+}
