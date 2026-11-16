@@ -1,0 +1,5 @@
+name,overrides,files,pesq,snr_db
+f-15_a0.98,floor_db=-15 lsa_smoothing=0.98,1296,1.95696,2.666
+f-18_a0.95,floor_db=-18 lsa_smoothing=0.95,1296,1.94912,2.66
+f-12_a0.98,floor_db=-12 lsa_smoothing=0.98,1296,1.94741,2.656
+f-12_a0.95,floor_db=-12 lsa_smoothing=0.95,1296,1.94374,2.648

@@ -1,0 +1,3 @@
+name,overrides,files,pesq,snr_db
+lowcut-fixed325,band_floor=false wind_module=true,164,1.82025,3.813
+lowband-off,band_floor=false,164,1.74913,13.757

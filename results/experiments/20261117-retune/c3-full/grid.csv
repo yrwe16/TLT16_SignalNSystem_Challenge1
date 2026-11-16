@@ -1,0 +1,5 @@
+name,overrides,files,pesq,snr_db
+xi6_fr0.032,noise_spp_snr_db=6 frame_seconds=0.032,1296,1.95163,2.65
+xi15_fr0.032,noise_spp_snr_db=15 frame_seconds=0.032,1296,1.95035,2.67
+xi15_fr0.064,noise_spp_snr_db=15 frame_seconds=0.064,1296,1.89059,2.691
+xi10_fr0.064,noise_spp_snr_db=10 frame_seconds=0.064,1296,1.88813,2.678
