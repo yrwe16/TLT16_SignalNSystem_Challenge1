@@ -10,7 +10,7 @@ from .config import CONFIG
 from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
                     musical_noise_postfilter, omlsa_decision_directed, wiener_decision_directed)
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
-                               gated_transient_noise,
+                               gated_transient_noise, shape_gain_noise,
                                file_snr_features, lowest_energy_frames,
                                quantile_window_noise, rpca_noise, scale_noise_bands, spp_weighted_noise,
                                harmonic_tunnel_noise, tracked_noise, tracked_protected_noise,
@@ -114,8 +114,11 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
     f0_voiced = None
     if cfg.harmonic_noise or cfg.noise_estimator == "tracked_protected":
         f0_voiced = first_pass_f0(x, sample_rate, times, cfg)
+    fixed = noise
     if cfg.noise_estimator == "tracked_protected":
         noise = protected_noise(x, sample_rate, z, noise, times, n_fft, hop, cfg, f0_voiced)
+    if cfg.shape_gain_noise and fixed.ndim == 1:
+        noise = shape_gain_noise(np.abs(z) ** 2, noise, fixed, sample_rate, n_fft, cfg)
     if cfg.harmonic_noise:
         noise, _ = harmonic_tunnel_noise(np.abs(z) ** 2, noise, *f0_voiced, sample_rate, n_fft,
                                          cfg)

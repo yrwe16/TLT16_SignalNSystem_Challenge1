@@ -63,7 +63,8 @@ class QuantileWindow(unittest.TestCase):
     stationary white noise and follows a 12 dB level step."""
 
     def _estimate(self, x, **kw):
-        cfg = replace(CONFIG, noise_estimator="quantile_window", **kw)
+        # noise_beta_high pinned to 1 (the R2-15 default 1.25 scales the band above 4 kHz)
+        cfg = replace(CONFIG, noise_estimator="quantile_window", noise_beta_high=1.0, **kw)
         n_fft, hop = cfg.stft_sizes(SAMPLE_RATE)
         _, times, z = stft(x, SAMPLE_RATE, n_fft, hop)
         return estimate_noise_psd(z, times, len(x), SAMPLE_RATE, n_fft, hop, cfg)

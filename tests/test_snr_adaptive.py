@@ -19,7 +19,8 @@ class SnrAdaptive(unittest.TestCase):
         np.testing.assert_array_equal(denoise_signal(x, SAMPLE_RATE, neutral), base)
 
     def test_offset(self):
-        cfg = replace(CONFIG, snr_adaptive=True, snr_adapt_start_db=8.0, snr_adapt_floor15_db=-10.0)
+        cfg = replace(CONFIG, snr_adaptive=True, snr_adapt_start_db=8.0, snr_adapt_floor15_db=-10.0,
+                      band_mid_floor_db=-15.0)   # the expected offsets assume a -15 dB floor
         self.assertEqual(snr_adaptive_offset_db(-3.0, cfg), 0.0)
         self.assertEqual(snr_adaptive_offset_db(8.0, cfg), 0.0)
         self.assertAlmostEqual(snr_adaptive_offset_db(11.5, cfg), 2.5)

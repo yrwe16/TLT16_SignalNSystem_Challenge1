@@ -198,9 +198,10 @@ class Config:
     band_floor: bool = True                # adopted in round 02, step R2-1
     band_cutoff_hz: float = 325.0
     band_low_depth_db: float = -25.0
-    band_mid_floor_db: float = -15.0       # [cutoff, 1000) Hz
-    band_midhigh_floor_db: float = -15.0   # [1000, 4000) Hz
-    band_high_floor_db: float = -15.0      # [4000, fs/2] Hz
+    # R2-15 adopted 2026-11-18 (all were -15 dB): chosen on Train (subset grid, full Train top 5).
+    band_mid_floor_db: float = -12.0       # [cutoff, 1000) Hz
+    band_midhigh_floor_db: float = -18.0   # [1000, 4000) Hz
+    band_high_floor_db: float = -20.0      # [4000, fs/2] Hz
     band_smooth_bins: int = 2              # 0, 1 or 2 bins of linear transition
 
     # Round-02 step 2, stationary noise estimate (noise_tracker="fixed" only):
@@ -222,7 +223,7 @@ class Config:
     noise_mix_weight: float = 0.5
     noise_beta_low: float = 1.0    # below 325 Hz
     noise_beta: float = 1.0        # 325 Hz - 4 kHz
-    noise_beta_high: float = 1.0   # from 4 kHz
+    noise_beta_high: float = 1.25  # from 4 kHz (R2-15 adopted 2026-11-18, was 1.0)
 
     # Round-02 step 4 part 2, SNR-dependent gain floor (needs band_floor): the file SNR is
     # estimated from the noisy input and the noise estimate (all bins, complete frames),
@@ -247,6 +248,16 @@ class Config:
     # Round-02 step 14, floor_mode: "noisy" = floor x |Y| (until now); "noise" = floored cells
     # output floor x sqrt(noise PSD), a steady residual (LSA paths with a prior, our choice).
     floor_mode: str = "noisy"
+    # Round-02 step 15, shape_gain_noise: noise PSD = long-term shape (the stationary spp_iter
+    # estimate) x a per-frame level g(l) measured in a band with little speech energy
+    # (shape_gain_fmin_hz .. fs/2) as the bias-corrected q-quantile of |Y|^2 / shape over the
+    # band's bins (exponential periodogram: q-quantile = -ln(1-q) x mean), 3-frame median,
+    # clipped to [1/4, 16]; combined with the current estimate by "max" or "replace". Idea from
+    # reports/약점 잡음 PESQ 개선 알고리즘.md (water); all values our choice.
+    shape_gain_noise: bool = False
+    shape_gain_fmin_hz: float = 4000.0
+    shape_gain_quantile: float = 0.25
+    shape_gain_combine: str = "max"
     snr_adaptive: bool = False
     snr_adapt_start_db: float = 8.0
     snr_adapt_floor15_db: float = -12.0
@@ -390,6 +401,9 @@ class Config:
             raise ValueError("Invalid harmonic_noise parameters.")
         if self.floor_mode not in ("noisy", "noise"):
             raise ValueError("floor_mode must be 'noisy' or 'noise'.")
+        if (self.shape_gain_combine not in ("max", "replace")
+                or not 0 < self.shape_gain_quantile < 1 or self.shape_gain_fmin_hz < 0):
+            raise ValueError("Invalid shape_gain_noise parameters.")
         if not 0 < self.pcm_peak_limit <= 1:
             raise ValueError("pcm_peak_limit must be in (0, 1].")
 

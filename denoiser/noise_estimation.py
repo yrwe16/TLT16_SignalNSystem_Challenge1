@@ -626,6 +626,28 @@ def tracked_protected_noise(power, fixed, f0, voiced, voiced_ok, hop_seconds, sa
     return np.maximum(both, fixed[:, None] * 10 ** (cfg.tracked_floor_db / 10))
 
 
+def shape_gain_noise(power, current, shape, sample_rate, n_fft, cfg):
+    """Round-02 step 15: noise PSD = shape(k) x g(l) (see config.shape_gain_*; our choices).
+
+    shape: the stationary estimate (bins,); current: the estimate so far (bins,) or
+    (bins, frames). g(l) is the q-quantile of |Y|^2 / shape over the bins at or above
+    shape_gain_fmin_hz, divided by the q-quantile of a unit-mean exponential variable
+    (-ln(1-q)), then median-filtered over 3 frames and clipped to [1/4, 16]."""
+    from scipy.ndimage import median_filter
+    bins, frames = power.shape
+    f = np.arange(bins) * sample_rate / n_fft
+    band = f >= cfg.shape_gain_fmin_hz
+    q = cfg.shape_gain_quantile
+    ratio = power[band] / np.maximum(shape[band, None], 1e-30)
+    g = np.quantile(ratio, q, axis=0) / (-np.log(1 - q))
+    g = np.clip(median_filter(g, size=3, mode="nearest"), 0.25, 16.0)
+    model = shape[:, None] * g[None, :]
+    cur = np.broadcast_to(current[:, None] if current.ndim == 1 else current, power.shape)
+    if cfg.shape_gain_combine == "replace":
+        return model
+    return np.maximum(cur, model)
+
+
 def harmonic_tunnel_noise(power, base, f0, voiced, sample_rate, n_fft, cfg):
     """Round-02 step 12 (version B): noise sampled between speech harmonics in voiced frames.
 
