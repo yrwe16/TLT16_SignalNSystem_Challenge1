@@ -1,0 +1,5 @@
+name,overrides,files,pesq,snr_db
+fr24,frame_seconds=0.024,350,2.61041,1.957
+ov875,overlap_ratio=0.875,350,2.60511,2.179
+fr48,frame_seconds=0.048,350,2.58322,2.192
+phase_on,phase_reconstruction=True,350,2.57989,2.152

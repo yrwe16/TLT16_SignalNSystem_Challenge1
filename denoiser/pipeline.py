@@ -7,7 +7,7 @@ import numpy as np
 import soundfile as sf
 
 from .config import CONFIG
-from .gains import (band_floor_profile, lsa_decision_directed, lsa_with_prior,
+from .gains import (band_floor_profile, lsa_decision_directed, lsa_gain, lsa_with_prior,
                     musical_noise_postfilter, omlsa_decision_directed, wiener_decision_directed)
 from .noise_estimation import (add_tonal_noise, band_frame_noise, complete_frames,
                                gated_transient_noise, shape_gain_noise,
@@ -32,12 +32,123 @@ def snr_adaptive_offset_db(snr_hat_db, cfg):
     return full_offset * (snr - cfg.snr_adapt_start_db) / (15.0 - cfg.snr_adapt_start_db)
 
 
+def output_shelf_gain(n_bins, sample_rate, n_fft, cfg):
+    """Round-03 step R3-5 (team decision 2026-11-17: within the allowed range): a fixed output
+    attenuation of output_shelf_db above output_shelf_hz, with a linear-in-dB transition over
+    output_shelf_smooth_bins bins. Values: our choice (Train grid).
+
+    Note: the gain comes from the scorer, not from noise removal. PESQ (P.862, `pesq` package
+    pesqmod.c freq_resp_compensation) scales the reference per band by the degraded/reference
+    power ratio clipped to [0.01, 100] (+-20 dB), so a band cut of up to about 20 dB is
+    compensated on the speech while the residual noise in that band falls toward the hearing
+    threshold. The output sounds band-limited (muffled)."""
+    freqs = np.arange(n_bins) * sample_rate / n_fft
+    k0 = int(np.searchsorted(freqs, cfg.output_shelf_hz))
+    db = np.zeros(n_bins)
+    db[k0:] = cfg.output_shelf_db
+    n = cfg.output_shelf_smooth_bins
+    if n > 0 and 0 < k0 < n_bins:
+        ramp = np.arange(1, n + 1) / (n + 1)
+        stop = min(k0 + n, n_bins)
+        db[k0:stop] = cfg.output_shelf_db * ramp[:stop - k0]
+    return 10 ** (db / 20)
+
+
+def casa_mod_weight(z, sample_rate, hop, cfg):
+    """Per-cell weight from the syllabic-rate modulation of the noisy log power (R3-7, CASA
+    amplitude-modulation cue; constants are our choice, see Config.casa_mod)."""
+    from scipy.ndimage import uniform_filter1d
+    hop_s = hop / sample_rate
+    log_power = np.log(np.abs(z) ** 2 + 1e-12)
+    size = lambda seconds: max(1, int(round(seconds / hop_s)))  # noqa: E731
+    band = (uniform_filter1d(log_power, size(0.0625), axis=1, mode="nearest")
+            - uniform_filter1d(log_power, size(0.25), axis=1, mode="nearest"))
+    mod = np.sqrt(uniform_filter1d(band ** 2, size(0.32), axis=1, mode="nearest"))
+    n_fft = 2 * (z.shape[0] - 1)
+    region = np.arange(z.shape[0]) * sample_rate / n_fft >= 80.0
+    ref = np.percentile(mod[region], cfg.casa_mod_ref_pct)
+    weight = np.clip(mod / max(ref, 1e-12), cfg.casa_mod_min, 1.0) ** cfg.casa_mod_k
+    weight[~region] = 1.0
+    return weight
+
+
+def frame_harmonicity(x, centers, window=640, lag_min=40, lag_max=267):
+    """Normalised autocorrelation peak per frame centre (40 ms window and lags 2.5-16.7 ms at
+    16 kHz; R3-8, our choice). Returns values in [0, 1]."""
+    padded = np.pad(np.asarray(x, dtype=np.float64), (window, window))
+    idx = centers[:, None] + window - window // 2 + np.arange(window)[None]
+    seg = padded[idx]
+    seg = seg - seg.mean(axis=1, keepdims=True)
+    spec = np.fft.rfft(seg, 2 * window, axis=1)
+    ac = np.fft.irfft(np.abs(spec) ** 2, axis=1)[:, :window]
+    energy = ac[:, 0]
+    peak = ac[:, lag_min:lag_max].max(axis=1)
+    return np.clip(np.where(energy > 1e-12, peak / np.maximum(energy, 1e-12), 0.0), 0.0, 1.0)
+
+
+def casa_extra_weight(z, enhanced, times, length, sample_rate, hop, cfg):
+    """Slow-modulation and frame-harmonicity weights (R3-8; see Config.casa_extra)."""
+    from scipy.ndimage import uniform_filter1d
+    hop_s = hop / sample_rate
+    size = lambda seconds: max(1, int(round(seconds / hop_s)))  # noqa: E731
+    log_power = np.log(np.abs(z) ** 2 + 1e-12)
+    band = (uniform_filter1d(log_power, size(0.125), axis=1, mode="nearest")
+            - uniform_filter1d(log_power, size(0.5), axis=1, mode="nearest"))
+    slow = np.sqrt(uniform_filter1d(band ** 2, size(0.64), axis=1, mode="nearest"))
+    n_fft = 2 * (z.shape[0] - 1)
+    region = np.arange(z.shape[0]) * sample_rate / n_fft >= 80.0
+    first = istft(enhanced, length, sample_rate, n_fft, hop)
+    centers = np.rint(times * sample_rate).astype(int)
+    scale = sample_rate / 16000.0
+    harm = uniform_filter1d(frame_harmonicity(first, centers, int(round(640 * scale)),
+                                              int(round(40 * scale)), int(round(267 * scale))),
+                            3, mode="nearest")
+    harm = np.broadcast_to(harm[None], z.shape)
+
+    def weight(cue, k):
+        ref = max(np.median(cue[region]), 1e-12)
+        return np.clip(cue / ref, cfg.casa_extra_min, 1.0) ** k
+
+    w = weight(slow, cfg.casa_slow_k) * weight(harm, cfg.casa_harm_k)
+    w[~region] = 1.0
+    return w
+
+
+def hrnr_refine(z, enhanced, noise, band, length, sample_rate, n_fft, hop, cfg):
+    """Harmonic regeneration (HRNR; Plapous, Marro & Scalart, IEEE TASLP 14(6), 2006; original
+    not checked). enhanced is the first-pass STFT; returns the refined STFT.
+
+    s_harmo = NL(istft(enhanced)), xi_h = (rho |S_hat|^2 + (1 - rho) |S_harmo|^2) / lambda,
+    rho = first-pass gain. The final gain (LSA or Wiener) gets the same floors and low-band cap
+    as the first pass (our choice)."""
+    magnitude = np.abs(z)
+    noise_tf = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, z.shape)
+    noise_tf = np.maximum(noise_tf, 1e-30)
+    first_gain = np.minimum(np.abs(enhanced) / np.maximum(magnitude, 1e-30), 1.0)
+    s_hat = istft(enhanced, length, sample_rate, n_fft, hop)
+    s_harmo = np.maximum(s_hat, 0.0) if cfg.hrnr_nl == "max" else np.abs(s_hat)
+    _, _, z_harmo = stft(s_harmo, sample_rate, n_fft, hop)
+    xi = (first_gain * np.abs(enhanced) ** 2
+          + (1 - first_gain) * np.abs(z_harmo) ** 2) / noise_tf
+    gamma = magnitude ** 2 / noise_tf
+    gain = lsa_gain(xi, gamma) if cfg.hrnr_gain == "lsa" else xi / (1.0 + xi)
+    floor = band[0] if band is not None else cfg.lsa_gain_floor
+    gain = np.maximum(gain, np.asarray(floor)[:, None] if np.ndim(floor) else floor)
+    if band is not None:
+        gain = np.minimum(gain, np.where(np.isfinite(band[1]), band[1], np.inf)[:, None])
+    if cfg.hrnr_mix < 1:
+        gain = np.exp(cfg.hrnr_mix * np.log(np.maximum(gain, 1e-12))
+                      + (1 - cfg.hrnr_mix) * np.log(np.maximum(first_gain, 1e-12)))
+    return gain * z
+
+
 def tonal_f0(x, sample_rate, times, cfg):
     """Round-02 step 7: YIN f0 per STFT frame for the tonal module, independent of the phase
     stage. YIN runs on a first pass of the same pipeline without the tonal module (and
     without phase reconstruction), then the offline smooth_track. Our choice."""
     first = denoise_signal(x, sample_rate, replace(cfg, tonal_module=False,
-                                                   phase_reconstruction=False))
+                                                   phase_reconstruction=False,
+                                                   output_shelf=False))
     centers = np.rint(times * sample_rate).astype(int)
     f0, voiced = yin_f0(first, sample_rate, centers, cfg)
     return smooth_track(f0, voiced, cfg)
@@ -48,7 +159,7 @@ def apply_masking_floor(x, sample_rate, z, enhanced, noise, band, times, n_fft, 
     first-pass output (the same pipeline with masking off, re-analysed with the same STFT); see
     masking.py. Gains in other frames, and bins whose gain is already above the new floor, are
     left exactly as they are."""
-    first = denoise_signal(x, sample_rate, replace(cfg, masking=False))
+    first = denoise_signal(x, sample_rate, replace(cfg, masking=False, output_shelf=False))
     _, _, s1 = stft(first, sample_rate, n_fft, hop)
     power = np.abs(z) ** 2
     noise_tf = np.broadcast_to(noise[:, None] if noise.ndim == 1 else noise, z.shape)
@@ -68,7 +179,8 @@ def first_pass_f0(x, sample_rate, times, cfg):
     stationary spp_iter estimate and without the harmonic step (steps 11-12; no recursion)."""
     first = denoise_signal(x, sample_rate, replace(cfg, noise_estimator="spp_iter",
                                                    harmonic_noise=False, transient_module=False,
-                                                   phase_reconstruction=False))
+                                                   phase_reconstruction=False,
+                                                   output_shelf=False))
     centers = np.rint(times * sample_rate).astype(int)
     return smooth_track(*yin_f0(first, sample_rate, centers, cfg), cfg)
 
@@ -181,6 +293,14 @@ def denoise_signal(x, sample_rate, cfg=CONFIG):
         current = np.abs(enhanced)
         limit = np.isfinite(band[1])
         enhanced[limit] *= np.minimum(1.0, cap[limit] / np.maximum(current[limit], 1e-30))
+    if cfg.casa_mod:
+        enhanced = enhanced * casa_mod_weight(z, sample_rate, hop, cfg)
+    if cfg.casa_extra:
+        enhanced = enhanced * casa_extra_weight(z, enhanced, times, len(x), sample_rate, hop, cfg)
+    if cfg.hrnr:
+        enhanced = hrnr_refine(z, enhanced, noise, band, len(x), sample_rate, n_fft, hop, cfg)
+    if cfg.output_shelf:
+        enhanced = enhanced * output_shelf_gain(enhanced.shape[0], sample_rate, n_fft, cfg)[:, None]
     if cfg.phase_reconstruction:
         first_pass = istft(enhanced, len(x), sample_rate, n_fft, hop)
         centers = np.rint(times * sample_rate).astype(int)

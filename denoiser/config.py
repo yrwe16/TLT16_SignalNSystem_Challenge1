@@ -18,7 +18,8 @@ class Config:
     # 3 iterations; R2-2; noise_estimator="lowenergy" gives the R2-1 base). Phase
     # reconstruction and the round-01 wind_module stay off. Round 01 (tag round-01) =
     # band_floor=False, wind_module=True, phase_reconstruction=True. Stage-0 baseline Wiener =
-    # gain_rule="wiener", prior_snr="dd", band_floor=False, noise_estimator="lowenergy", mdkf=False.
+    # gain_rule="wiener", prior_snr="dd", band_floor=False, noise_estimator="lowenergy", mdkf=False,
+    # output_shelf=False, casa_mod=False, casa_extra=False.
     # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
@@ -296,6 +297,41 @@ class Config:
     tsnr_first_gain: str = "wiener"      # "wiener" (paper) or "lsa" (our choice)
     tsnr_xi_min_db: float = -40.0        # lower bound on xi_2 (our choice)
 
+    # Round 03, step R3-6 (HRNR, harmonic regeneration noise reduction; Plapous, Marro &
+    # Scalart, IEEE TASLP 14(6), 2006; original not checked): the first-pass output s_hat is
+    # passed through a non-linearity (half-wave rectification "max" or "abs") to regenerate
+    # harmonics, xi_h = (rho |S_hat|^2 + (1 - rho) |S_harmo|^2) / lambda with rho = first-pass
+    # gain, and the gain is recomputed from xi_h (pipeline.hrnr_refine). The first pass is our
+    # full output before the shelf (our choice; the paper uses the TSNR output). Off by default.
+    hrnr: bool = False
+    hrnr_nl: str = "max"                 # "max" (half-wave, paper) or "abs"
+    hrnr_gain: str = "lsa"               # "lsa" (our choice) or "wiener" (paper)
+    hrnr_mix: float = 1.0                # log-gain mix with the first pass (1 = HRNR only; ours)
+
+    # Round 03, step R3-7 (CASA amplitude-modulation cue; idea after Hu & Wang, IEEE TNN 15(5),
+    # 2004, original not checked; feature and rule are our choice): speech cells carry strong
+    # syllabic-rate (about 2-8 Hz) modulation of the log envelope, steady noise does not. Per
+    # bin, the band-passed log power (62.5 ms minus 250 ms moving average) is RMS-averaged over
+    # 320 ms; the output gain is multiplied by clip(mod / ref, casa_mod_min, 1) ** casa_mod_k,
+    # ref = casa_mod_ref_pct percentile of mod over the file (bins >= 80 Hz).
+    # pipeline.casa_mod_weight. Adopted in R3-7 (k 0.75, min 0.12, median; Train grid).
+    casa_mod: bool = True                # R3-7 adopted 2026-11-17
+    casa_mod_k: float = 0.75
+    casa_mod_min: float = 0.12
+    casa_mod_ref_pct: float = 50.0
+
+    # Round 03, step R3-8 (more CASA cues; our choice, original sources not checked): two extra
+    # weights multiplied onto the gain after casa_mod, each clip(cue / file median,
+    # casa_extra_min, 1) ** k. (1) slow modulation: as casa_mod but 125 ms minus 500 ms moving
+    # average, RMS over 640 ms (about 1-4 Hz, word/phrase rate), bins >= 80 Hz; (2) frame
+    # harmonicity: normalised autocorrelation peak of the first-pass output (40 ms window, lags
+    # 2.5-16.7 ms, 3-frame smoothing), the same for all bins >= 80 Hz of a frame.
+    # pipeline.casa_extra_weight. Adopted in R3-8 (k 0.5 / 0.5, min 0.12; Train grid).
+    casa_extra: bool = True              # R3-8 adopted 2026-11-17
+    casa_slow_k: float = 0.5
+    casa_harm_k: float = 0.5
+    casa_extra_min: float = 0.12
+
     # Round 03, step C2 (a priori SNR over-estimation, gains.lsa_with_prior). Off by default.
     dd_combine: str = "mean"             # "mean" (adopted R2), "min" or "geo" of the two DD passes
     xi_cap_k: float = 0.0                # 0 = off; xi <= k * (max(gamma - 1, 0) + xi_cap_min)
@@ -308,6 +344,14 @@ class Config:
     mdkf_r0: float = 100.0               # observation variance term r0 / max(gamma - 1, 0.01) (grid 0.3-300)
     mdkf_mix: float = 0.5                # geometric weight of the Kalman xi vs the DD xi (grid 0.3-1.0)
     mdkf_obs_floor_db: float = -20.0     # observation floor relative to the noise PSD
+
+    # Round 03, step R3-5: fixed output band attenuation above output_shelf_hz (team decision
+    # 2026-11-17: within the allowed range; the gain relies on PESQ's +-20 dB frequency
+    # response compensation, see pipeline.output_shelf_gain). Adopted in R3-5.
+    output_shelf: bool = True            # R3-5 adopted 2026-11-17 (was False)
+    output_shelf_hz: float = 700.0       # grid {500, 600, 700, 850, 1000, 1300}
+    output_shelf_db: float = -25.0       # grid {-15, -20, -25, -30, -35}
+    output_shelf_smooth_bins: int = 0
 
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
@@ -362,6 +406,8 @@ class Config:
             raise ValueError("prior_snr other than 'dd' requires gain_rule='lsa', omlsa=False.")
         if self.dd_combine not in ("mean", "min", "geo"):
             raise ValueError("dd_combine must be 'mean', 'min' or 'geo'.")
+        if self.output_shelf_db > 0 or self.output_shelf_hz <= 0 or self.output_shelf_smooth_bins < 0:
+            raise ValueError("output_shelf_db <= 0, output_shelf_hz > 0, smooth bins >= 0.")
         if self.mdkf_order < 1 or self.mdkf_r0 < 0 or not 0 <= self.mdkf_mix <= 1:
             raise ValueError("mdkf_order >= 1, mdkf_r0 >= 0 and mdkf_mix in [0, 1] required.")
         if self.mdkf and (self.gain_rule not in ("lsa", "gg") or self.prior_snr == "dd"):
@@ -374,6 +420,17 @@ class Config:
                           or self.omlsa):
             raise ValueError("tsnr requires gain_rule='lsa', prior_snr other than 'dd', "
                              "omlsa=False.")
+        if self.hrnr_nl not in ("max", "abs") or self.hrnr_gain not in ("lsa", "wiener"):
+            raise ValueError("hrnr_nl must be 'max'/'abs' and hrnr_gain 'lsa'/'wiener'.")
+        if not 0 <= self.hrnr_mix <= 1:
+            raise ValueError("hrnr_mix must be in [0, 1].")
+        if (self.casa_mod_k < 0 or not 0 < self.casa_mod_min <= 1
+                or not 0 < self.casa_mod_ref_pct <= 100):
+            raise ValueError("casa_mod_k >= 0, casa_mod_min in (0, 1], casa_mod_ref_pct in "
+                             "(0, 100] required.")
+        if min(self.casa_slow_k, self.casa_harm_k) < 0 or not 0 < self.casa_extra_min <= 1:
+            raise ValueError("casa_slow_k, casa_harm_k >= 0 and casa_extra_min in (0, 1] "
+                             "required.")
         if self.ceps_kappa < 0 or self.ml2d_bins < 1 or self.ml2d_frames < 1:
             raise ValueError("ceps_kappa must be >= 0 and ml2d sizes >= 1.")
         if (self.tonal_min_seconds <= 0 or self.tonal_weight < 0 or self.tonal_median_bins < 3

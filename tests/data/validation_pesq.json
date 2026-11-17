@@ -1,5 +1,5 @@
 {
-  "source": "results/experiments/20261117-r03-e8/validation/validation_per_file.csv (round-03 step R3-E8: modulation-domain Kalman a priori SNR on r03-base-s2)",
+  "source": "results/experiments/20261117-r03-casa2/run/validation/validation_per_file.csv (round-03 step R3-8: extra CASA cues on r03-base-s5)",
   "tolerance": 0.001,
   "files": [
     {
@@ -8,7 +8,7 @@
       "target_snr_db": 0.0,
       "noisy_path": "validation/noisy/speaker007_utt02_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt02_seg0011.wav",
-      "pesq_wb": 1.14382
+      "pesq_wb": 1.38522
     },
     {
       "segment_id": "speaker015_utt01_seg0008",
@@ -16,7 +16,7 @@
       "target_snr_db": 5.0,
       "noisy_path": "validation/noisy/speaker015_utt01_seg0008_noisy.wav",
       "clean_path": "validation/clean/speaker015_utt01_seg0008.wav",
-      "pesq_wb": 1.60766
+      "pesq_wb": 2.12796
     },
     {
       "segment_id": "speaker007_utt01_seg0003",
@@ -24,7 +24,7 @@
       "target_snr_db": 10.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0003_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0003.wav",
-      "pesq_wb": 1.34888
+      "pesq_wb": 2.47118
     },
     {
       "segment_id": "speaker007_utt01_seg0008",
@@ -32,7 +32,7 @@
       "target_snr_db": 5.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0008_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0008.wav",
-      "pesq_wb": 1.48027
+      "pesq_wb": 1.83776
     },
     {
       "segment_id": "speaker007_utt01_seg0011",
@@ -40,7 +40,7 @@
       "target_snr_db": 15.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0011.wav",
-      "pesq_wb": 1.90368
+      "pesq_wb": 2.83814
     }
   ]
 }

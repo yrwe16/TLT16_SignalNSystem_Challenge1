@@ -1,0 +1,7 @@
+name,overrides,files,pesq,snr_db
+k0.75_m0.12_p50,casa_mod=True casa_mod_k=0.75 casa_mod_min=0.12 casa_mod_ref_pct=50,350,2.67888,2.136
+k1.0_m0.12_p50,casa_mod=True casa_mod_k=1.0 casa_mod_min=0.12 casa_mod_ref_pct=50,350,2.67664,2.12
+k0.75_m0.18_p50,casa_mod=True casa_mod_k=0.75 casa_mod_min=0.18 casa_mod_ref_pct=50,350,2.67362,2.136
+k0.75_m0.18_p40,casa_mod=True casa_mod_k=0.75 casa_mod_min=0.18 casa_mod_ref_pct=40,350,2.67306,2.149
+k1.0_m0.18_p50,casa_mod=True casa_mod_k=1.0 casa_mod_min=0.18 casa_mod_ref_pct=50,350,2.67253,2.12
+k0.5_m0.12_p50,casa_mod=True casa_mod_k=0.5 casa_mod_min=0.12 casa_mod_ref_pct=50,350,2.66948,2.152

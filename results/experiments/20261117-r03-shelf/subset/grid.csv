@@ -1,0 +1,21 @@
+name,overrides,files,pesq,snr_db
+sh700_d-25,output_shelf=True output_shelf_hz=700 output_shelf_db=-25,350,2.62656,2.177
+sh600_d-25,output_shelf=True output_shelf_hz=600 output_shelf_db=-25,350,2.60255,1.941
+sh600_d-30,output_shelf=True output_shelf_hz=600 output_shelf_db=-30,350,2.57866,1.897
+sh850_d-25,output_shelf=True output_shelf_hz=850 output_shelf_db=-25,350,2.57754,2.355
+sh700_d-30,output_shelf=True output_shelf_hz=700 output_shelf_db=-30,350,2.57694,2.141
+sh700_d-20,output_shelf=True output_shelf_hz=700 output_shelf_db=-20,350,2.55146,2.24
+sh1000_d-25,output_shelf=True output_shelf_hz=1000 output_shelf_db=-25,350,2.531,2.451
+sh850_d-30,output_shelf=True output_shelf_hz=850 output_shelf_db=-30,350,2.51624,2.326
+sh1000_d-20,output_shelf=True output_shelf_hz=1000 output_shelf_db=-20,350,2.4932,2.494
+sh500_d-25,output_shelf=True output_shelf_hz=500 output_shelf_db=-25,350,2.46851,1.356
+sh1300_d-25,output_shelf=True output_shelf_hz=1300 output_shelf_db=-25,350,2.45111,2.598
+sh1300_d-20,output_shelf=True output_shelf_hz=1300 output_shelf_db=-20,350,2.42939,2.629
+sh700_d-15,output_shelf=True output_shelf_hz=700 output_shelf_db=-15,350,2.42753,2.347
+sh600_d-35,output_shelf=True output_shelf_hz=600 output_shelf_db=-35,350,2.41025,1.872
+sh1000_d-15,output_shelf=True output_shelf_hz=1000 output_shelf_db=-15,350,2.39955,2.567
+sh700_d-35,output_shelf=True output_shelf_hz=700 output_shelf_db=-35,350,2.39717,2.121
+sh500_d-20,output_shelf=True output_shelf_hz=500 output_shelf_db=-20,350,2.38124,1.469
+sh1300_d-15,output_shelf=True output_shelf_hz=1300 output_shelf_db=-15,350,2.35499,2.682
+sh850_d-35,output_shelf=True output_shelf_hz=850 output_shelf_db=-35,350,2.34889,2.309
+sh500_d-15,output_shelf=True output_shelf_hz=500 output_shelf_db=-15,350,2.2866,1.667

@@ -1,0 +1,19 @@
+{
+  "base": "results\\experiments\\20261117-r03-base-s4\\validation",
+  "new": "results\\experiments\\20261117-r03-casa\\run\\validation",
+  "split": "validation",
+  "snr_weighted_mean": {
+    "pesq": {
+      "base": 2.372263371121112,
+      "new": 2.4478718726065005
+    },
+    "snr": {
+      "base": 2.00150261562602,
+      "new": 1.9987940131463675
+    }
+  },
+  "checks": {
+    "validation_mean_diff_>=-0.005": true
+  },
+  "test": "paired bootstrap 95% CI of the mean difference (scipy.stats.bootstrap, 10000 resamples, BCa, seed 0); Wilcoxon signed-rank, two-sided"
+}

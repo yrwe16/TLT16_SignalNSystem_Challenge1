@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+sh700_d-25,output_shelf=True output_shelf_hz=700 output_shelf_db=-25,1296,2.61985,2.162
+sh600_d-25,output_shelf=True output_shelf_hz=600 output_shelf_db=-25,1296,2.6018,1.941
+sh700_d-30,output_shelf=True output_shelf_hz=700 output_shelf_db=-30,1296,2.5771,2.125

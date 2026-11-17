@@ -1,0 +1,13 @@
+name,overrides,files,pesq,snr_db
+fhi-25,band_midhigh_floor_db=-25 band_high_floor_db=-25,350,2.63299,2.177
+nb0.8,noise_beta=0.8,350,2.62796,2.179
+nophase,phase_reconstruction=False,350,2.62656,2.177
+base,,350,2.62656,2.177
+bh1.25,noise_beta_high=1.25,350,2.62571,2.177
+nb1.3,noise_beta=1.3,350,2.6239,2.175
+a0.95,lsa_smoothing=0.95,350,2.62019,2.179
+fmid-9,band_mid_floor_db=-9,350,2.62018,2.175
+mix0.75,mdkf_mix=0.75,350,2.61822,2.164
+fmid-16,band_mid_floor_db=-16,350,2.61545,2.174
+mix0.25,mdkf_mix=0.25,350,2.60877,2.185
+fhi-12,band_midhigh_floor_db=-12 band_high_floor_db=-12,350,2.58768,2.177

@@ -1,0 +1,2 @@
+name,overrides,files,pesq,snr_db
+s0.5_h0.5,casa_extra=True casa_slow_k=0.5 casa_harm_k=0.5 casa_extra_min=0.12,164,2.65175,2.05

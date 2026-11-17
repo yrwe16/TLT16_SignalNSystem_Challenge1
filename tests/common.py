@@ -22,9 +22,16 @@ WIENER_BASELINE = replace(CONFIG, gain_rule="wiener", prior_snr="dd", wind_modul
                           noise_beta=1.0, noise_beta_high=1.0,
                           phase_reconstruction=False, noise_tracker="fixed", omlsa=False,
                           tonal_module=False, rpca_module=False, transient_module=False,
-                          postfilter=False, masking=False, mdkf=False)
+                          postfilter=False, masking=False, mdkf=False,
+                          output_shelf=False, casa_mod=False, casa_extra=False)
+# r03-base-s5 (before step R3-8): no extra CASA cues.
+R03_S5 = replace(CONFIG, casa_extra=False)
+# r03-base-s4 (before step R3-7): no CASA modulation weighting.
+R03_S4 = replace(R03_S5, casa_mod=False)
+# r03-base-s3 (before step R3-5): no output band attenuation.
+R03_S3 = replace(R03_S4, output_shelf=False)
 # r03-base-s2 (before step R3-E8): no modulation-domain Kalman a priori SNR.
-R03_S2 = replace(CONFIG, mdkf=False)
+R03_S2 = replace(R03_S3, mdkf=False)
 # r03-base-s1 (before step R3-2): low-band cut-off 325 Hz.
 R03_S1 = replace(R03_S2, band_cutoff_hz=325.0)
 # r02-base-s6 = round-02 submission (before step R3-1): DD alpha 0.95, high-band factor 1.25.
@@ -40,7 +47,8 @@ R02_S2 = replace(R02_S4, tonal_module=False, noise_estimator="spp_iter")
 R02_S3 = replace(R02_S4, noise_estimator="spp_iter")
 CONFIGS = {"default": CONFIG, "wiener": WIENER_BASELINE, "r02_s2": R02_S2, "r02_s3": R02_S3,
            "r02_s4": R02_S4, "r02_s5": R02_S5, "r02_s6": R02_S6,
-           "r03_s1": R03_S1, "r03_s2": R03_S2}
+           "r03_s1": R03_S1, "r03_s2": R03_S2,
+           "r03_s3": R03_S3, "r03_s4": R03_S4, "r03_s5": R03_S5}
 
 
 def synthetic_signal(seed=0):

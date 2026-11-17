@@ -1,0 +1,2 @@
+name,overrides,files,pesq,snr_db
+k0.75_m0.12_p50,casa_mod=True casa_mod_k=0.75 casa_mod_min=0.12 casa_mod_ref_pct=50,164,2.62767,2.081

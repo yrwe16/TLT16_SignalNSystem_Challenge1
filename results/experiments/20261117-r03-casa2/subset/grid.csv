@@ -1,0 +1,8 @@
+name,overrides,files,pesq,snr_db
+s0.5_h0.5,casa_extra=True casa_slow_k=0.5 casa_harm_k=0.5 casa_extra_min=0.12,350,2.70511,2.1
+s0.5_h0.75,casa_extra=True casa_slow_k=0.5 casa_harm_k=0.75 casa_extra_min=0.12,350,2.70411,2.09
+s0.5_h0.35,casa_extra=True casa_slow_k=0.5 casa_harm_k=0.35 casa_extra_min=0.12,350,2.70332,2.106
+s0.75_h0.5,casa_extra=True casa_slow_k=0.75 casa_harm_k=0.5 casa_extra_min=0.12,350,2.703,2.092
+s0.5_h0.5_m0.25,casa_extra=True casa_slow_k=0.5 casa_harm_k=0.5 casa_extra_min=0.25,350,2.70295,2.1
+s0.35_h0.5,casa_extra=True casa_slow_k=0.35 casa_harm_k=0.5 casa_extra_min=0.12,350,2.70116,2.105
+base,casa_extra=False,350,2.67888,2.136

@@ -1,0 +1,7 @@
+name,overrides,files,pesq,snr_db
+abs_lsa_m0.5,hrnr=True hrnr_nl=abs hrnr_gain=lsa hrnr_mix=0.5,350,2.61579,2.18
+max_lsa_m0.5,hrnr=True hrnr_nl=max hrnr_gain=lsa hrnr_mix=0.5,350,2.61515,2.18
+max_wie_m0.5,hrnr=True hrnr_nl=max hrnr_gain=wiener hrnr_mix=0.5,350,2.59358,2.18
+max_lsa_m1,hrnr=True hrnr_nl=max hrnr_gain=lsa hrnr_mix=1.0,350,2.59172,2.183
+abs_lsa_m1,hrnr=True hrnr_nl=abs hrnr_gain=lsa hrnr_mix=1.0,350,2.57502,2.181
+max_wie_m1,hrnr=True hrnr_nl=max hrnr_gain=wiener hrnr_mix=1.0,350,2.55054,2.182
