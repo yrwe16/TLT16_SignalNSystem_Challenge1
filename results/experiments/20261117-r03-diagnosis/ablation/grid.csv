@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+beta_high1,noise_beta_high=1.0,1296,1.96044,2.636
+no_tonal,tonal_module=False,1296,1.95557,2.626
+lowenergy,noise_estimator=lowenergy,1296,1.93217,2.675
