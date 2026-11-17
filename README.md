@@ -3,13 +3,13 @@
 | 항목 | 내용 |
 | --- | --- |
 | 팀명 | 저희가왜마지막이조(TLT, TheLastTeam(16조)) |
-| 제출 회차 | 2회차 |
-| 평가 버전 | Git 태그 `round-02` (커밋 해시는 런어스 제출 글에 함께 기재; 1회차는 `round-01`) |
-| 알고리즘 | MMSE-LSA (양방향 decision-directed 사전 SNR) + 음성 보호형 시간 변화 잡음 추정 + 협대역 음(경보·사이렌) 잡음 모듈 + 대역별 최소 이득, 딥러닝·머신러닝 미사용 |
+| 제출 회차 | 3회차 |
+| 평가 버전 | Git 태그 `round-03` (커밋 해시는 런어스 제출 글에 함께 기재; 1회차 `round-01`, 2회차 `round-02`) |
+| 알고리즘 | MMSE-LSA (양방향 decision-directed + 변조 영역 Kalman 사전 SNR) + 음성 보호형 시간 변화 잡음 추정 + 협대역 음(경보·사이렌) 잡음 모듈 + 대역별 최소 이득 + CASA 단서 가중(변조·조화도) + 700 Hz 위 출력 대역 감쇠, 딥러닝·머신러닝 미사용 |
 
 ## 실행 방법
 
-Python 3.10 이상에서 동작합니다 (2회차 제출본은 Python 3.14 새 가상환경에서 `requirements.txt`만으로 설치·실행을 확인했습니다. 파일당 처리 시간은 단일 프로세스로 약 1.1초입니다).
+Python 3.10 이상에서 동작합니다 (3회차 제출본은 Python 3.14 새 가상환경에서 `requirements.txt`만으로 설치·실행을 확인했습니다. Python 3.10은 이번 회차에 다시 확인하지 못했습니다. 파일당 처리 시간은 단일 프로세스로 약 1.0초입니다).
 
 ```bash
 # 1. 패키지 설치
@@ -58,12 +58,14 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 모든 처리는 Noisy 입력만 사용하며, 학습된 모델이나 데이터로 학습하는 파라미터는 없습니다.
 
 1. **STFT:** Hann 창 512 샘플(32 ms), hop 128 샘플(75 % 겹침).
-2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 시작값으로 씁니다. 2회차부터는 이를 +2 dB 올린 값에서 출발해, 셀마다 음성이 없을 확률 $P(H_0) = 1 - \big[1 + (1+\xi_{H1})\,e^{-\gamma\,\xi_{H1}/(1+\xi_{H1})}\big]^{-1}$ ($\xi_{H1}$ = 10 dB, Gerkmann & Hendriks 2012)로 가중한 평균 $\sigma^2(k) = \sum_t P(H_0)|Y|^2 / \sum_t P(H_0)$을 3번 반복해 구하고 주파수 방향으로 3-bin 평활화합니다 (2회차 2단계). 4 kHz 위는 이 값에 1.25를 곱합니다 (15단계).
+2. **잡음 파워 추정:** 경계 패딩을 제외한 완전한 프레임 중 에너지가 가장 낮은 20 %의 평균 파워를 시작값으로 씁니다. 2회차부터는 이를 +2 dB 올린 값에서 출발해, 셀마다 음성이 없을 확률 $P(H_0) = 1 - \big[1 + (1+\xi_{H1})\,e^{-\gamma\,\xi_{H1}/(1+\xi_{H1})}\big]^{-1}$ ($\xi_{H1}$ = 10 dB, Gerkmann & Hendriks 2012)로 가중한 평균 $\sigma^2(k) = \sum_t P(H_0)|Y|^2 / \sum_t P(H_0)$을 3번 반복해 구하고 주파수 방향으로 3-bin 평활화합니다 (2회차 2단계). 4 kHz 위는 이 값에 2.0을 곱합니다 (3회차 R3-1, 2회차 15단계는 1.25).
    **시간 변화 추적 (2회차 11단계):** 이 값에서 출발해 프레임마다 SPP 가중 기대 주기도로 갱신하되(시간 상수 0.3 s), 음성 칸(프레임 사후 SNR ≥ 10 dB인 프레임, 유성음 프레임의 f0 하모닉 ±1 bin)은 갱신하지 않습니다. 정방향·역방향 결과의 칸별 최소값을 씁니다. 하모닉 판정은 같은 처리의 1차 출력에서 YIN으로 구합니다.
    **협대역 음 (2회차 7·14단계):** 경보·사이렌·종소리처럼 오래 이어지는 협대역 성분을 프레임마다 추적해(기울기 ±2 kHz/s 이내, 300 ms 이상), 그 궤적과 정수배에서 확인된 피크 주변 ±2 bin의 파워 중 주변 스펙트럼 중앙값을 넘는 부분을 잡음 추정에 더합니다. 음성 하모닉을 잘못 잡지 않도록 1차 출력의 YIN f0 배수 ±1 bin을 제외하고, 무성음·묵음 프레임에서도 이어지며(비율 0.5 이상) 레벨이 일정한(추세 제거 표준편차 ≤ 6 dB) 궤적만 쓰고, 400 Hz 아래는 찾지 않습니다 (모두 우리 선택).
-3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리).
+3. **사전 SNR (단계 4):** 사후 SNR $\gamma_t = |Y_t|^2 / N$과 decision-directed $\xi_t = a\,|\hat S_{t-1}|^2/N + (1-a)\max(\gamma_t-1, 0)$를 정방향과 시간 역방향으로 각각 계산해 평균합니다 (3초 파일 전체를 쓰는 비인과 처리, $a$ = 0.98). 3회차(R3-E8)부터는 빈마다 1차 LSA 출력의 로그 파워에 AR(3) 모델을 맞춰 Kalman 필터와 RTS 평활기로 구한 사전 SNR과 이 DD 값을 기하평균(가중 0.5)합니다 (Wang & Brookes 2018 단순화).
 4. **이득 (단계 1):** MMSE-LSA $G_t = \max\big(\tfrac{\xi_t}{1+\xi_t}\exp(\tfrac12 E_1(v_t)),\ g_{\min}\big)$, $v_t = \tfrac{\xi_t}{1+\xi_t}\gamma_t$ (Ephraim & Malah, 1985).
-5. **저역 차단 / 대역별 최소 이득:** 1회차 제출본은 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한했습니다(`wind_module`). 2회차부터는 이를 일반화한 **대역별 최소 이득**(`band_floor`)을 씁니다: 325 Hz 아래는 출력을 Noisy 입력 대비 −25 dB 이하로 제한하고(1단계), LSA 최소 이득은 325 Hz–1 kHz −12 dB, 1–4 kHz −18 dB, 4 kHz 위 −20 dB이며(15단계), 경계는 2 bin에 걸쳐 부드럽게 잇습니다.
+5. **저역 차단 / 대역별 최소 이득:** 1회차 제출본은 325 Hz 아래 대역의 이득을 $g_{\min}$으로 제한했습니다(`wind_module`). 2회차부터는 이를 일반화한 **대역별 최소 이득**(`band_floor`)을 씁니다: 300 Hz 아래는 출력을 Noisy 입력 대비 −25 dB 이하로 제한하고(1단계, 3회차 R3-2에서 경계 325 → 300 Hz), LSA 최소 이득은 300 Hz–1 kHz −12 dB, 1–4 kHz −18 dB, 4 kHz 위 −20 dB이며(15단계), 경계는 2 bin에 걸쳐 부드럽게 잇습니다.
+   **CASA 단서 가중 (3회차 R3-7, R3-8):** 잡음 섞인 입력의 빈별 로그 파워에서 음절 속도(약 2–8 Hz)와 느린(약 1–4 Hz) 변조 세기를 구하고, 1차 출력에서 프레임 조화도(정규화 자기상관 최댓값)를 구합니다. 각 단서를 파일 중앙값으로 나눠 clip(·, 0.12, 1)^k (k = 0.75, 0.5, 0.5)로 만든 가중을 이득에 곱해, 변조와 주기성이 약한 셀(정상 잡음)을 더 줄입니다. 진폭 변조 단서는 Hu & Wang 2004의 착상이고, 특징과 규칙은 우리 선택입니다.
+   **출력 대역 감쇠 (3회차 R3-5, 팀 결정):** 700 Hz 위 출력을 −25 dB 일괄 감쇠합니다. 이 이득은 잡음 제거가 아니라 PESQ의 대역별 주파수 응답 보상(원 신호를 열화 신호 쪽으로 대역마다 ±20 dB까지 맞춤)에서 나옵니다. 음성 감쇠는 보상으로 상쇄되고 그 대역의 잔류 잡음만 청취 문턱 쪽으로 내려가기 때문입니다. 실제 소리는 대역이 제한되어 먹먹하게 들립니다.
 6. **유성음 위상 복원 (단계 5):** 1차 출력에서 YIN으로 기본 주파수를 추정하고(비인과 평활), 유성음 프레임의 600 Hz 이하 위상을 고조파 모델과 분석 창의 위상으로 주파수 방향으로 복원합니다 (Krawczyk & Gerkmann, 2014). 유성음 경계에서는 3프레임에 걸쳐 크로스페이드합니다. 1회차 제출본(`round-01` 태그)에는 켜져 있고, 저역 차단과 함께 재측정했을 때 효과가 없어 2회차부터 `main`의 기본값에서는 끕니다 (`phase_reconstruction=False`, 코드는 유지).
 7. **ISTFT:** overlap-add로 파형을 복원하고 입력 길이에 맞춥니다.
 
@@ -93,23 +95,25 @@ TLT16_DATA_ROOT=<데이터 폴더> python -m unittest discover tests   # + Valid
 | 그 밖의 2회차 실험 모듈 | 모두 끔 (미채택 또는 보류): generalized gamma 이득 `gain_rule="gg"`, 음악성 잡음 후처리 `postfilter`, 청각 마스킹 최소 이득 `masking`, 하모닉 사이 잡음 `harmonic_noise`, 일정 잔류 바닥 `floor_mode`, 형상×레벨 잡음 `shape_gain_noise` | `denoiser/config.py` |
 
 LSA 파라미터는 Train에서 PESQ-WB 기준으로 골랐습니다 (최소 이득 −10/−12/−15/−20/−25 dB × $a$ 0.92/0.95/0.98).
-`gain_rule="wiener"`, `prior_snr="dd"`, `phase_reconstruction=False`, `wind_module=False`, `mdkf=False`(3회차 R3-E8부터)로 바꾸면 베이스라인 Wiener(단계 0)와 바이트 단위로 같은 출력을 냅니다.
+`gain_rule="wiener"`, `prior_snr="dd"`, `phase_reconstruction=False`, `wind_module=False`, `mdkf=False`(3회차 R3-E8부터), `output_shelf=False`, `casa_mod=False`, `casa_extra=False`(3회차 R3-5·R3-7·R3-8부터)로 바꾸면 베이스라인 Wiener(단계 0)와 바이트 단위로 같은 출력을 냅니다.
 
 모든 파라미터는 코드(`denoiser/config.py`)에 포함되어 있으며 별도 설정 파일이 필요 없습니다.
 
 ## Validation 평가 결과
 
-2회차(`round-02`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`denoise.py`가 저장한 출력을 채점, `results/validation_summary.csv`).
+3회차(`round-03`) 제출 버전으로 Validation 164개 파일을 평가한 결과입니다 (`denoise.py`가 저장한 출력을 채점, `results/validation_summary.csv`).
 
 | 입력 | 파일 수 | 평균 SNR (dB) | 평균 PESQ-WB |
 | --- | ---: | ---: | ---: |
 | Noisy (처리 전) | 164 | 9.63 | 1.395 |
-| 제출 알고리즘 (2회차) | 164 | 2.44 | **1.901** |
-| 개선량 | | −7.19 | +0.506 |
+| 제출 알고리즘 (3회차) | 164 | 2.05 | **2.652** |
+| 개선량 | | −7.58 | +1.257 |
+| 참고: 2회차 제출본 (`round-02`) | 164 | 2.44 | 1.901 |
 | 참고: 1회차 제출본 (`round-01`) | 164 | 3.83 | 1.805 |
 
-PESQ 계산 실패 파일은 0개입니다. Train(1296개)에서는 처리 전 1.470 → 2회차 1.963 (1회차 1.872)입니다. 1회차 히든 테스트 결과는 PESQ-WB 1.890이었습니다.
-SNR이 처리 전보다 낮은 것은 325 Hz 아래 대역을 깊게 줄이는 대역별 최소 이득이 음성의 기본 주파수 대역도 함께 줄이기 때문입니다. 순위 지표인 PESQ-WB를 기준으로 채택했습니다 (10단계에서 7단계 기준으로 측정했을 때 대역별 최소 이득을 끄면 Validation PESQ-WB 1.749, SNR 13.76 dB; 베이스라인 Wiener는 PESQ-WB 1.599, SNR 13.12 dB). 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
+PESQ 계산 실패 파일은 0개입니다. Train(1296개)에서는 처리 전 1.470 → 3회차 2.692 (2회차 1.963, 1회차 1.872)입니다. 히든 테스트 결과는 1회차 PESQ-WB 1.890, 2회차 1.965였습니다.
+3회차 개선 중 +0.59(Train)는 700 Hz 위 출력 대역 감쇠(R3-5)에서 나왔고, 이는 위 알고리즘 설명대로 PESQ의 대역별 보상을 이용한 것이며 실제 음질은 대역 제한으로 먹먹해집니다 (팀 결정으로 채택). 나머지는 DD 계수·고역 잡음 계수·저역 경계 재조정(R3-1·R3-2, +0.03), 변조 영역 Kalman 사전 SNR(R3-E8, +0.04), CASA 단서 가중(R3-7·R3-8, +0.07)입니다.
+SNR이 처리 전보다 낮은 것은 300 Hz 아래 대역을 깊게 줄이는 대역별 최소 이득과 700 Hz 위 출력 대역 감쇠가 음성 성분도 함께 줄이기 때문입니다. 순위 지표인 PESQ-WB를 기준으로 채택했습니다 (10단계에서 7단계 기준으로 측정했을 때 대역별 최소 이득을 끄면 Validation PESQ-WB 1.749, SNR 13.76 dB; 베이스라인 Wiener는 PESQ-WB 1.599, SNR 13.12 dB). 잡음 종류·목표 SNR·난이도별 결과는 `results/validation_by_*.csv`, 파일별 점수는 `results/validation_per_file.csv`에 있습니다.
 
 평가 방법은 베이스라인 노트북과 같습니다.
 
@@ -234,7 +238,8 @@ python tools/make_ab_listening.py --data-root <데이터 폴더> --out listening
     --a "기준" --b "새:wind_module=false"
 ```
 
-2회차 실험은 현재 기본값의 결과인 `results/experiments/20261118-r02-base-s6/`(15단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261117-r02-base-s5/`: 14단계 채택 후, `20261117-r02-base-s4/`: 11단계 채택 후, `20261116-r02-base-s3/`: 7단계 채택 후, `20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
+3회차 실험의 최종 기준(현재 기본값)은 `results/experiments/20261117-r03-base-s6/`(R3-8 채택 후)이며, 그 전 3회차 기준은 `20261117-r03-base-s1/` ~ `-s5/`입니다. 3회차 진단 결과는 `20261117-r03-diagnosis/`, `-c0/`, `-c2/`, `-levers/`, `-levers2/`의 `summary.md`에 있습니다.
+2회차 실험은 당시 기본값의 결과인 `results/experiments/20261118-r02-base-s6/`(15단계 채택 후 Train·Validation 파일별 결과, `summary.md`)를 기준으로 비교합니다. 그 전 기준(`20261117-r02-base-s5/`: 14단계 채택 후, `20261117-r02-base-s4/`: 11단계 채택 후, `20261116-r02-base-s3/`: 7단계 채택 후, `20261113-r02-base/`: 대역별 최소 이득 끔, `20261113-r02-base-s1/`: 1단계 채택 후, `20261113-r02-base-s2/`: 2단계 채택 후)은 기록으로 남겨 둡니다. 잡음 추정이 실제 잡음과 얼마나 다른지는 `tools/diagnose_noise_estimate.py`로 진단합니다 (Clean은 진단에만 사용). 병렬 평가 때는 `OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`를 1로 고정합니다.
 
 ### 2회차 채택 조건
 
@@ -300,6 +305,10 @@ listening/              청취 세트 (로컬 전용, .gitignore)
 - A. Hirszhorn, D. Dov, R. Talmon, and I. Cohen, "Transient interference suppression in speech signals based on the OM-LSA algorithm," *Proc. IWAENC*, 2012. (2회차 9단계, 미채택; 원문 확인)
 - D. Ealey, H. Kelleher, and D. Pearce, "Harmonic tunnelling: tracking non-stationary noises during speech," *Proc. Eurospeech*, pp. 437–440, 2001, DOI 10.21437/Eurospeech.2001-117. (2회차 12단계, 미채택; 원문 확인)
 - R. J. McAulay and T. F. Quatieri, "Speech analysis/synthesis based on a sinusoidal representation," *IEEE Transactions on Acoustics, Speech, and Signal Processing*, vol. 34, no. 4, pp. 744–754, 1986, DOI 10.1109/TASSP.1986.1164910. (단계 6 피크 궤적 연결 방식, 미채택; 상수는 자체 설정)
+- Y. Wang and M. Brookes, "Model-Based Speech Enhancement in the Modulation Domain," *IEEE/ACM Transactions on Audio, Speech, and Language Processing*, vol. 26, no. 3, pp. 580–594, 2018. (3회차 R3-E8 변조 영역 Kalman 사전 SNR의 착상; 원문 수식 미전사, 우리 단순화 설계)
+- C. Plapous, C. Marro, and P. Scalart, "Improved Signal-to-Noise Ratio Estimation for Speech Enhancement," *IEEE Transactions on Audio, Speech, and Language Processing*, vol. 14, no. 6, pp. 2098–2108, 2006. (3회차 R3-3 TSNR, R3-6 HRNR, 모두 미채택; 원문 미확인)
+- G. Hu and D. L. Wang, "Monaural Speech Segregation Based on Pitch Tracking and Amplitude Modulation," *IEEE Transactions on Neural Networks*, vol. 15, no. 5, pp. 1135–1150, 2004. (3회차 R3-7·R3-8 CASA 진폭 변조 단서의 착상; 원문 미확인, 특징과 규칙은 우리 선택)
+- ITU-T P.862 / P.862.2와 `pesq` 0.0.4 (ludlows/python-pesq) `pesqmod.c`의 `freq_resp_compensation`: 3회차 R3-5 출력 대역 감쇠의 원리 분석에 코드를 읽기만 함 (복사하지 않음).
 - 단계 3의 음성 부재 확률 상수와 OM-LSA decision-directed 방식: chenwj1989/python-speech-enhancement `pns/suppression_gain.py` (커밋 f38fde7, BSD-3, Copyright (c) 2019 wjchen)를 읽고 직접 구현.
 - 이득 수식 대조용으로 읽은 코드 (복사하지 않고 직접 구현): wilsonchingg/logmmse `logmmse/logmmse.py` (MIT), ImperialCollegeLondon/sap-voicebox `voicebox/v_ssubmmse.m`, `voicebox/v_estnoiseg.m` (LGPL-3, 단계 2 상수의 출처).
 - 코드 출처: 강의 제공 베이스라인 노트북 `noise_reduction_baselines.ipynb`의 `stft_audio`, `inverse_stft`, `estimate_noise_power`, `wiener_filter`.
