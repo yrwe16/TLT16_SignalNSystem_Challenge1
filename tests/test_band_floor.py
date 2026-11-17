@@ -25,7 +25,7 @@ class BandFloor(unittest.TestCase):
     def test_default_is_adopted_setting(self):
         self.assertTrue(CONFIG.band_floor)
         self.assertEqual((CONFIG.band_cutoff_hz, CONFIG.band_low_depth_db, CONFIG.band_smooth_bins),
-                         (325.0, -25.0, 2))
+                         (300.0, -25.0, 2))  # cut-off 325 -> 300 Hz in round-03 step R3-2
 
     def test_settings_change_output(self):
         x = synthetic_signal()

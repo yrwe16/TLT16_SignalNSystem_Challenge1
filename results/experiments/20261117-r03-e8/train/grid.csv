@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+p3_r100_w0.5,mdkf=True mdkf_order=3 mdkf_r0=100 mdkf_mix=0.5,1296,2.03197,2.925
+p3_r30_w0.5,mdkf=True mdkf_order=3 mdkf_r0=30 mdkf_mix=0.5,1296,2.02985,2.925
+p4_r30_w0.5,mdkf=True mdkf_order=4 mdkf_r0=30 mdkf_mix=0.5,1296,2.02983,2.925

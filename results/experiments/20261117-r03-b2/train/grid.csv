@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+b1.0_h2.0_a0.98,noise_beta=1.0 noise_beta_high=2.0 lsa_smoothing=0.98,1296,1.98428,2.653
+b1.0_h1.5_a0.98,noise_beta=1.0 noise_beta_high=1.5 lsa_smoothing=0.98,1296,1.98383,2.653
+b1.0_h1.25_a0.98,noise_beta=1.0 noise_beta_high=1.25 lsa_smoothing=0.98,1296,1.98319,2.653

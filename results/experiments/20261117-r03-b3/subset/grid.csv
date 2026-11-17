@@ -1,0 +1,7 @@
+name,overrides,files,pesq,snr_db
+t_lsa_m-15,tsnr=True tsnr_first_gain=lsa tsnr_xi_min_db=-15,350,2.0162,2.926
+t_lsa_m-25,tsnr=True tsnr_first_gain=lsa tsnr_xi_min_db=-25,350,2.01477,2.929
+t_lsa_m-40,tsnr=True tsnr_first_gain=lsa tsnr_xi_min_db=-40,350,2.01348,2.929
+t_wiener_m-15,tsnr=True tsnr_first_gain=wiener tsnr_xi_min_db=-15,350,2.00289,2.927
+t_wiener_m-25,tsnr=True tsnr_first_gain=wiener tsnr_xi_min_db=-25,350,1.99157,2.931
+t_wiener_m-40,tsnr=True tsnr_first_gain=wiener tsnr_xi_min_db=-40,350,1.98954,2.931

@@ -258,6 +258,72 @@ def _dd_prior_snr(posterior_snr, noise_tf, z, smoothing, gain_floor, gain_fn=Non
     return xi
 
 
+def modulation_kalman_prior(xi_first, gamma, noise_tf, floor, cfg):
+    """Round-03 step E8 (our simplified design after Wang & Brookes, "Model-based speech
+    enhancement in the modulation domain", IEEE/ACM TASLP 26(3), 2018, and So & Paliwal,
+    Speech Commun. 53(6), 2011; equations of the papers not transcribed, original not
+    checked in this step): per frequency bin, the log speech power trajectory over frames is
+    an AR(p) process (modulation domain) tracked by a Kalman filter with an RTS smoother.
+
+    - Model: AR(p) with a mean, fitted per bin by least squares (covariance method) over the
+      whole file on the log power of the first-step LSA output |G(xi_first) Y|^2 (our choice:
+      one model per bin instead of 64 ms modulation frames; 3 s clips are short).
+    - Observation: o = ln(max(|Y|^2 - lambda, 10^(floor_db/10) lambda)), variance
+      R = pi^2/6 + r0 / max(gamma - 1, 1e-2) (pi^2/6 = variance of the log of an exponential
+      periodogram; the second term grows where noise dominates; our choice).
+    - Returns xi = exp(smoothed log power) / lambda.
+    All values: our choice.
+    """
+    p = cfg.mdkf_order
+    floor_tf = np.asarray(floor)[:, None] if np.ndim(floor) else floor
+    g1 = np.maximum(lsa_gain(xi_first, gamma), floor_tf)
+    x = np.log(np.maximum(g1 ** 2 * gamma * noise_tf, 1e-30))         # (K, T)
+    k_bins, t_frames = x.shape
+    mu = x.mean(axis=1, keepdims=True)
+    xc = x - mu
+    # least-squares AR(p) per bin: xc[t] = sum_i a_i xc[t-i] + e
+    rows = np.stack([xc[:, p - i - 1:t_frames - i - 1] for i in range(p)], axis=2)  # (K, T-p, p)
+    target = xc[:, p:]
+    gram = np.einsum("ktp,ktq->kpq", rows, rows) + 1e-6 * np.eye(p)
+    a = np.linalg.solve(gram, np.einsum("ktp,kt->kp", rows, target)[..., None])[..., 0]
+    s = np.abs(a).sum(axis=1, keepdims=True)
+    a = np.where(s > 0.98, a * 0.98 / np.maximum(s, 1e-12), a)          # keep it stable
+    resid = target - np.einsum("ktp,kp->kt", rows, a)
+    q = np.maximum(resid.var(axis=1), 1e-3)                             # process noise (K,)
+    big_f = np.zeros((k_bins, p, p))
+    big_f[:, 0, :] = a
+    if p > 1:
+        big_f[:, 1:, :-1] = np.eye(p - 1)[None]
+    power = gamma * noise_tf
+    obs = np.log(np.maximum(power - noise_tf, 10 ** (cfg.mdkf_obs_floor_db / 10) * noise_tf))
+    obs = obs - mu
+    r = np.pi ** 2 / 6 + cfg.mdkf_r0 / np.maximum(gamma - 1.0, 1e-2)
+    state = np.zeros((k_bins, p))
+    cov = np.broadcast_to(np.eye(p) * x.var(axis=1)[:, None, None], (k_bins, p, p)).copy()
+    sf, pf, sp, pp = [], [], [], []
+    for t in range(t_frames):
+        if t > 0:
+            state = np.einsum("kij,kj->ki", big_f, state)
+            cov = np.einsum("kij,kjl,kml->kim", big_f, cov, big_f)
+            cov[:, 0, 0] += q
+        sp.append(state.copy())
+        pp.append(cov.copy())
+        gain = cov[:, :, 0] / (cov[:, 0, 0] + r[:, t])[:, None]          # (K, p)
+        state = state + gain * (obs[:, t] - state[:, 0])[:, None]
+        cov = cov - gain[:, :, None] * cov[:, 0, :][:, None, :]
+        sf.append(state.copy())
+        pf.append(cov.copy())
+    smooth = sf[-1]
+    out = np.empty((k_bins, t_frames))
+    out[:, -1] = smooth[:, 0]
+    for t in range(t_frames - 2, -1, -1):
+        c = np.einsum("kij,klj->kil", pf[t], big_f)                     # P_f F^T
+        c = np.einsum("kij,kjl->kil", c, np.linalg.inv(pp[t + 1] + 1e-9 * np.eye(p)))
+        smooth = sf[t] + np.einsum("kij,kj->ki", c, smooth - sp[t + 1])
+        out[:, t] = smooth[:, 0]
+    return np.exp(out + mu) / noise_tf
+
+
 def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg, gain_floor=None):
     """MMSE-LSA gain (stage 1 floor) with an alternative a priori SNR estimator.
 
@@ -280,8 +346,37 @@ def lsa_with_prior(z, noise, sample_rate, hop_seconds, cfg, gain_floor=None):
         fwd = _dd_prior_snr(gamma, noise_tf, z, cfg.lsa_smoothing, floor, gain_fn)
         bwd = _dd_prior_snr(gamma[:, ::-1], noise_tf[:, ::-1], z[:, ::-1],
                             cfg.lsa_smoothing, floor, gain_fn)[:, ::-1]
-        xi = 0.5 * (fwd + bwd)
+        if cfg.dd_combine == "min":
+            # Round-03 C2 (our choice): the smaller of the two directions, so the forward
+            # tail after an offset and the backward pre-echo before an onset do not win.
+            xi = np.minimum(fwd, bwd)
+        elif cfg.dd_combine == "geo":
+            xi = np.sqrt(fwd * bwd)
+        else:
+            xi = 0.5 * (fwd + bwd)
+    if cfg.mdkf:
+        xi_m = modulation_kalman_prior(xi, gamma, noise_tf, floor, cfg)
+        # geometric mix with the DD estimate (mdkf_mix = 1: Kalman only; our choice)
+        xi = np.exp(cfg.mdkf_mix * np.log(np.maximum(xi_m, 1e-12))
+                    + (1 - cfg.mdkf_mix) * np.log(np.maximum(xi, 1e-12)))
+    if cfg.xi_cap_k > 0:
+        # Round-03 C2 (our choice): cap xi by what the current cell supports,
+        # xi <= k * (max(gamma - 1, 0) + xi_cap_min); C0 showed that DD over-estimates of xi
+        # (mostly in noise-dominated cells) cost far more PESQ than under-estimates.
+        xi = np.minimum(xi, cfg.xi_cap_k * (np.maximum(gamma - 1.0, 0.0)
+                                            + 10 ** (cfg.xi_cap_min_db / 10)))
     floor_tf = np.asarray(floor)[:, None] if np.ndim(floor) else floor
+    if cfg.tsnr:
+        # Round-03 step B3: two-step noise reduction (TSNR; Plapous, Marro & Scalart, IEEE
+        # TASLP 14(6), 2006; original not checked): the a priori SNR is re-estimated from the
+        # first-step output, xi_2 = G_1(xi)^2 * gamma, and the final gain uses xi_2. G_1 is the
+        # Wiener gain xi/(1+xi) as in the paper ("wiener") or the floored LSA gain ("lsa", our
+        # choice); the final gain stays LSA and the same floors apply (our choice).
+        if cfg.tsnr_first_gain == "wiener":
+            first = xi / (1.0 + xi)
+        else:
+            first = np.maximum(gain_fn(xi, gamma), floor_tf)
+        xi = np.maximum(first ** 2 * gamma, 10 ** (cfg.tsnr_xi_min_db / 10))
     raw = gain_fn(xi, gamma)
     if cfg.floor_mode == "noise":
         # Round-02 step 14 (our choice): where the LSA gain is below the floor, the output

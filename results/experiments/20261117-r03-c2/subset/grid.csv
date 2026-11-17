@@ -1,0 +1,22 @@
+name,overrides,files,pesq,snr_db
+comb_mean_fcur,dd_combine=mean,350,2.02944,2.932
+cap_k4_m-20_fcur,xi_cap_k=4 xi_cap_min_db=-20,350,2.02088,2.934
+cap_k2_m-20_fcur,xi_cap_k=2 xi_cap_min_db=-20,350,2.01486,2.934
+comb_geo_fcur,dd_combine=geo,350,2.01205,2.933
+cap_k4_m-30_fcur,xi_cap_k=4 xi_cap_min_db=-30,350,2.01059,2.935
+comb_mean_f-30,dd_combine=mean floor_db=-30,350,2.01048,2.934
+cap_k1_m-20_fcur,xi_cap_k=1 xi_cap_min_db=-20,350,2.0091,2.935
+cap_k2_m-30_fcur,xi_cap_k=2 xi_cap_min_db=-30,350,2.00656,2.935
+cap_k1_m-30_fcur,xi_cap_k=1 xi_cap_min_db=-30,350,2.0036,2.935
+comb_mean_f-25,dd_combine=mean floor_db=-25,350,2.00325,2.935
+cap_k4_m-20_f-25,xi_cap_k=4 xi_cap_min_db=-20 floor_db=-25,350,1.99689,2.936
+cap_k2_m-20_f-25,xi_cap_k=2 xi_cap_min_db=-20 floor_db=-25,350,1.98883,2.936
+comb_geo_f-30,dd_combine=geo floor_db=-30,350,1.97966,2.93
+cap_k1_m-20_f-25,xi_cap_k=1 xi_cap_min_db=-20 floor_db=-25,350,1.97642,2.936
+comb_geo_f-25,dd_combine=geo floor_db=-25,350,1.97411,2.931
+cap_k4_m-30_f-25,xi_cap_k=4 xi_cap_min_db=-30 floor_db=-25,350,1.96562,2.936
+cap_k2_m-30_f-25,xi_cap_k=2 xi_cap_min_db=-30 floor_db=-25,350,1.95656,2.936
+cap_k1_m-30_f-25,xi_cap_k=1 xi_cap_min_db=-30 floor_db=-25,350,1.94909,2.936
+comb_min_fcur,dd_combine=min,350,1.93391,2.9
+comb_min_f-30,dd_combine=min floor_db=-30,350,1.87026,2.878
+comb_min_f-25,dd_combine=min floor_db=-25,350,1.86333,2.88

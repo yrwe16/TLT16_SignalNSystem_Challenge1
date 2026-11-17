@@ -1,0 +1,4 @@
+name,overrides,files,pesq,snr_db
+c300_d-25,band_cutoff_hz=300 band_low_depth_db=-25,1296,1.9946,2.927
+c300_d-22.5,band_cutoff_hz=300 band_low_depth_db=-22.5,1296,1.98794,3.101
+c300_d-27.5,band_cutoff_hz=300 band_low_depth_db=-27.5,1296,1.9757,2.796

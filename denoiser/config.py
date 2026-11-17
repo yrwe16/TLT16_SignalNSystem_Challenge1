@@ -18,7 +18,7 @@ class Config:
     # 3 iterations; R2-2; noise_estimator="lowenergy" gives the R2-1 base). Phase
     # reconstruction and the round-01 wind_module stay off. Round 01 (tag round-01) =
     # band_floor=False, wind_module=True, phase_reconstruction=True. Stage-0 baseline Wiener =
-    # gain_rule="wiener", prior_snr="dd", band_floor=False, noise_estimator="lowenergy".
+    # gain_rule="wiener", prior_snr="dd", band_floor=False, noise_estimator="lowenergy", mdkf=False.
     # Gain rule (roadmap stage 1): "wiener" = baseline (stage 0), "lsa" = MMSE log-spectral
     # amplitude estimator (Ephraim & Malah, IEEE TASSP 33(2):443-445, 1985).
     # Both use the decision-directed a priori SNR; each rule keeps its own parameters.
@@ -31,7 +31,7 @@ class Config:
     # MMSE-LSA: G = xi/(1+xi) * exp(E1(v)/2), v = xi*gamma/(1+xi), then G = max(G, floor).
     # No upper clip (as in the paper, logmmse and VOICEBOX v_ssubmmse).
     # Chosen on Train by PESQ-WB: floor {-10,-12,-15,-20,-25} dB x a {0.92,0.95,0.98}.
-    lsa_smoothing: float = 0.95
+    lsa_smoothing: float = 0.98  # R3-1 adopted 2026-11-17 (was 0.95); grid {0.95, 0.98, 0.99, 0.995}
     lsa_gain_floor: float = 0.1778279410038923  # 10**(-15/20), -15 dB
 
     # Noise PSD (roadmap stage 2): "fixed" = one estimate per file (lowest-energy frames,
@@ -196,7 +196,7 @@ class Config:
     # PESQ-WB (results/experiments/20261113-bandfloor). Requires gain_rule="lsa" and
     # prior_snr="dd_bidir".
     band_floor: bool = True                # adopted in round 02, step R2-1
-    band_cutoff_hz: float = 325.0
+    band_cutoff_hz: float = 300.0          # R3-2 adopted 2026-11-17 (was 325)
     band_low_depth_db: float = -25.0
     # R2-15 adopted 2026-11-18 (all were -15 dB): chosen on Train (subset grid, full Train top 5).
     band_mid_floor_db: float = -12.0       # [cutoff, 1000) Hz
@@ -223,7 +223,7 @@ class Config:
     noise_mix_weight: float = 0.5
     noise_beta_low: float = 1.0    # below 325 Hz
     noise_beta: float = 1.0        # 325 Hz - 4 kHz
-    noise_beta_high: float = 1.25  # from 4 kHz (R2-15 adopted 2026-11-18, was 1.0)
+    noise_beta_high: float = 2.0   # from 4 kHz (R3-1 adopted 2026-11-17, was 1.25; R2-15: 1.0 -> 1.25)
 
     # Round-02 step 4 part 2, SNR-dependent gain floor (needs band_floor): the file SNR is
     # estimated from the noisy input and the noise estimate (all bins, complete frames),
@@ -290,6 +290,25 @@ class Config:
     postfilter_zeta_thr: float = 0.4
     postfilter_psi: int = 10
 
+    # Round 03, step B3 (TSNR, Plapous et al. 2006): re-estimate the a priori SNR from a
+    # first-step gain, xi_2 = G_1^2 * gamma (gains.lsa_with_prior). Off by default.
+    tsnr: bool = False
+    tsnr_first_gain: str = "wiener"      # "wiener" (paper) or "lsa" (our choice)
+    tsnr_xi_min_db: float = -40.0        # lower bound on xi_2 (our choice)
+
+    # Round 03, step C2 (a priori SNR over-estimation, gains.lsa_with_prior). Off by default.
+    dd_combine: str = "mean"             # "mean" (adopted R2), "min" or "geo" of the two DD passes
+    xi_cap_k: float = 0.0                # 0 = off; xi <= k * (max(gamma - 1, 0) + xi_cap_min)
+    xi_cap_min_db: float = -20.0
+
+    # Round 03, step E8: modulation-domain AR / Kalman (RTS) a priori SNR
+    # (gains.modulation_kalman_prior; simplified, our design). Adopted in R3-E8.
+    mdkf: bool = True                    # R3-E8 adopted 2026-11-17 (was False)
+    mdkf_order: int = 3                  # AR order p of the log speech power per bin (R3-E8 grid {1,2,3,4})
+    mdkf_r0: float = 100.0               # observation variance term r0 / max(gamma - 1, 0.01) (grid 0.3-300)
+    mdkf_mix: float = 0.5                # geometric weight of the Kalman xi vs the DD xi (grid 0.3-1.0)
+    mdkf_obs_floor_db: float = -20.0     # observation floor relative to the noise PSD
+
     # Output safety for integer PCM files (PESQ aligns levels, so a uniform gain is harmless).
     pcm_peak_limit: float = 0.999
 
@@ -341,6 +360,20 @@ class Config:
             raise ValueError("prior_snr must be 'dd', 'cepstral', 'dd_bidir' or 'ml_2d'.")
         if self.prior_snr != "dd" and (self.gain_rule not in ("lsa", "gg") or self.omlsa):
             raise ValueError("prior_snr other than 'dd' requires gain_rule='lsa', omlsa=False.")
+        if self.dd_combine not in ("mean", "min", "geo"):
+            raise ValueError("dd_combine must be 'mean', 'min' or 'geo'.")
+        if self.mdkf_order < 1 or self.mdkf_r0 < 0 or not 0 <= self.mdkf_mix <= 1:
+            raise ValueError("mdkf_order >= 1, mdkf_r0 >= 0 and mdkf_mix in [0, 1] required.")
+        if self.mdkf and (self.gain_rule not in ("lsa", "gg") or self.prior_snr == "dd"):
+            raise ValueError("mdkf requires gain_rule='lsa' and prior_snr other than 'dd'.")
+        if self.xi_cap_k < 0:
+            raise ValueError("xi_cap_k must be >= 0.")
+        if self.tsnr_first_gain not in ("wiener", "lsa"):
+            raise ValueError("tsnr_first_gain must be 'wiener' or 'lsa'.")
+        if self.tsnr and (self.gain_rule not in ("lsa", "gg") or self.prior_snr == "dd"
+                          or self.omlsa):
+            raise ValueError("tsnr requires gain_rule='lsa', prior_snr other than 'dd', "
+                             "omlsa=False.")
         if self.ceps_kappa < 0 or self.ml2d_bins < 1 or self.ml2d_frames < 1:
             raise ValueError("ceps_kappa must be >= 0 and ml2d sizes >= 1.")
         if (self.tonal_min_seconds <= 0 or self.tonal_weight < 0 or self.tonal_median_bins < 3

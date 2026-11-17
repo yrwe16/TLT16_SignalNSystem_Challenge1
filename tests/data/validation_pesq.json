@@ -1,5 +1,5 @@
 {
-  "source": "results/experiments/20261118-r02-base-s6/validation/validation_per_file.csv (round-02 base after step R2-15: per-band floors and high-band noise factor)",
+  "source": "results/experiments/20261117-r03-e8/validation/validation_per_file.csv (round-03 step R3-E8: modulation-domain Kalman a priori SNR on r03-base-s2)",
   "tolerance": 0.001,
   "files": [
     {
@@ -8,7 +8,7 @@
       "target_snr_db": 0.0,
       "noisy_path": "validation/noisy/speaker007_utt02_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt02_seg0011.wav",
-      "pesq_wb": 1.16247
+      "pesq_wb": 1.14382
     },
     {
       "segment_id": "speaker015_utt01_seg0008",
@@ -16,7 +16,7 @@
       "target_snr_db": 5.0,
       "noisy_path": "validation/noisy/speaker015_utt01_seg0008_noisy.wav",
       "clean_path": "validation/clean/speaker015_utt01_seg0008.wav",
-      "pesq_wb": 1.596417
+      "pesq_wb": 1.60766
     },
     {
       "segment_id": "speaker007_utt01_seg0003",
@@ -24,7 +24,7 @@
       "target_snr_db": 10.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0003_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0003.wav",
-      "pesq_wb": 1.302042
+      "pesq_wb": 1.34888
     },
     {
       "segment_id": "speaker007_utt01_seg0008",
@@ -32,7 +32,7 @@
       "target_snr_db": 5.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0008_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0008.wav",
-      "pesq_wb": 1.403141
+      "pesq_wb": 1.48027
     },
     {
       "segment_id": "speaker007_utt01_seg0011",
@@ -40,7 +40,7 @@
       "target_snr_db": 15.0,
       "noisy_path": "validation/noisy/speaker007_utt01_seg0011_noisy.wav",
       "clean_path": "validation/clean/speaker007_utt01_seg0011.wav",
-      "pesq_wb": 1.683769
+      "pesq_wb": 1.90368
     }
   ]
 }
